@@ -52,18 +52,27 @@ export class WalkScene extends Phaser.Scene {
   private demo!: DemoDriver;
   private glanceUntil = 0;
   private propsSeed = 1;
+  private photos: string[] = [];
+  private lookStart = 0; private lookShot = false;
+  private bike = -1; private holdOn = false; private signalTimer?: Phaser.Time.TimerEvent;
+  private bigPuddleX = -9999;
+  private cleanFrames = 0;
+  private morningAt = 1e9;
 
   constructor() { super('Walk'); }
 
   create() {
     expose('scene', 'Walk');
     this.w = new Walk();
+    const jump = Number(query.get('seg'));
+    if (jump > 0) this.w.jumpTo(jump);
     this.acc = 0; this.frame = 0; this.queue = []; this.now = 0;
     this.rec = new Recorder(1);
     const r = replayFromUrl(); this.player = r ? new Player(r) : null;
     const mk = (kind: 'me' | 'friend', x: number): Rig => ({ L: { from: x - 23, to: x - 23, t0: -1e9, lift: 14 }, R: { from: x + 23, to: x + 23, t0: -1e9, lift: 14 }, facing: 1, kind });
     this.me = mk('me', 0); this.fr = mk('friend', -9999);
     this.camX = 0; this.lookY = 0; this.lookTarget = 0; this.endPhase = 0; this.cafeHeel = 0;
+    this.photos = []; this.morningAt = 1e9; this.bike = -1; this.holdOn = false; this.bigPuddleX = -9999;
 
     makePaperTexture(this);
     makeBlotTexture(this, 'blotRed', 'rgba(196,48,52,1)', 40);
@@ -80,11 +89,11 @@ export class WalkScene extends Phaser.Scene {
     // タイトル(玄関で最初の一歩まで)
     this.titleText = this.add.text(W * 0.5, H * 0.3, t('title'), { fontFamily: '"Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif', fontSize: '56px', color: '#2f3a56' })
       .setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    this.tweens.add({ targets: this.titleText, alpha: 0.85, duration: 1800, delay: 300 });
+    if (this.w.segIndex === 0) this.tweens.add({ targets: this.titleText, alpha: 0.85, duration: 1800, delay: 300 });
     const keyHint = !this.sys.game.device.input.touch;
     this.hintL = this.add.text(W * 0.25, H * 0.62, keyHint ? 'F / ←' : '', { fontFamily: 'sans-serif', fontSize: '16px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
     this.hintR = this.add.text(W * 0.75, H * 0.62, keyHint ? 'J / →' : '', { fontFamily: 'sans-serif', fontSize: '16px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    this.tweens.add({ targets: [this.hintL, this.hintR], alpha: 0.5, duration: 1200, delay: 2500 });
+    if (this.w.segIndex === 0) this.tweens.add({ targets: [this.hintL, this.hintR], alpha: 0.5, duration: 1200, delay: 2500 });
 
     if (query.has('debug')) this.dbg = this.add.text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#000', backgroundColor: '#ffffffaa' }).setScrollFactor(0).setDepth(99);
     this.add.text(W - 6, H - 4, `build ${expose.length ? '' : ''}${(window as any).__BUILD_ID__ ?? ''}`, { fontFamily: 'monospace', fontSize: '9px', color: '#00000044' }).setOrigin(1, 1).setScrollFactor(0).setDepth(99);
@@ -205,13 +214,48 @@ export class WalkScene extends Phaser.Scene {
         break;
       case 'look':
         this.lookTarget = e.up ? 1 : 0;
+        this.lookStart = this.now; this.lookShot = false;
         snd.muffle(e.up && seg.verse !== 3);
+        break;
+      case 'beat': this.onBeat(e.id); break;
+      case 'hold':
+        this.holdOn = e.on;
+        if (e.on) {
+          let k = 0;
+          this.signalTimer = this.time.addEvent({ delay: 330, repeat: 14, callback: () => { snd.note('glock', k++ % 2 ? 84 : 88, 0.16, { dur: 0.2, wet: 0.2 }); } });
+        } else this.signalTimer?.remove();
         break;
       case 'end': break;
     }
   }
 
   private camOffset() { return this.camX; }
+
+  private onBeat(id: string) {
+    const stride = tune('walk.stride');
+    switch (id) {
+      case 'door': this.time.delayedCall(400, () => snd.play('door_open', 0.5)); break;
+      case 'puddle': this.bigPuddleX = (this.w.x + 3) * stride; break;
+      case 'bike': this.bike = this.now; this.time.delayedCall(300, () => snd.play('bell_ding', 0.35, 1, 0.4)); break;
+      case 'shutter': snd.play('door_creak', 0.25); break;
+      case 'bell': snd.play('bell_ding', 0.3, 1.1, -0.3); break;
+      case 'photo': this.takePhoto(true); break;
+      case 'lookup': this.lookTarget = 1; this.lookStart = this.now; this.lookShot = false; this.time.delayedCall(5200, () => { if (this.w.seg.kind === 'barefoot') this.lookTarget = 0; }); break;
+    }
+  }
+
+  /** 今の画面を 1 枚の写真として残す(最後に並べる) */
+  private takePhoto(flash = true) {
+    if (this.photos.length >= 8) return;
+    if (flash) { snd.play('camera_shutter', 0.45); this.time.delayedCall(60, () => { this.flash = 0.8; }); }
+    this.cleanFrames = 2;
+    this.game.renderer.snapshot((img) => {
+      if (!(img instanceof HTMLImageElement)) return;
+      const key = `photo${this.photos.length}_${Math.floor(this.now)}`;
+      const add = () => { if (!this.textures.exists(key)) { this.textures.addImage(key, img); this.photos.push(key); } };
+      if (img.complete) add(); else img.onload = add;
+    });
+  }
 
   private fadeTitle() {
     if (this.titleText && this.titleText.alpha > 0 && this.w.steps >= 1) {
@@ -251,6 +295,11 @@ export class WalkScene extends Phaser.Scene {
     if (seg.kind === 'barefoot') snd.music('m1_barefoot.mp3', 0.45);
     if (seg.kind === 'end') snd.music(null);
     if (seg.kind === 'cafe' || seg.kind === 'cutscene' || seg.kind === 'end') this.lookTarget = 0;
+    if (seg.kind === 'cafe') {
+      this.time.delayedCall(2600, () => { snd.play('cup_on_table', 0.4); });
+      this.time.delayedCall(5200, () => { snd.play('fork_on_dish', 0.35); this.takePhoto(); });
+      this.time.delayedCall(8200, () => snd.play('glass_clink', 0.25));
+    }
     this.propsSeed = STORY.indexOf(seg) * 97 + 13;
     if (seg.kind === 'end') this.time.delayedCall(10, () => this.endSequence());
     if (seg.kind === 'cutscene') this.stairsSequence();
@@ -267,6 +316,7 @@ export class WalkScene extends Phaser.Scene {
     const fixed = seg.kind === 'cafe' || seg.kind === 'cutscene' || seg.kind === 'end';
     if (!fixed) this.camX += (meX - W * 0.38 - this.camX) * 0.08;
     this.lookY += (this.lookTarget - this.lookY) * 0.04;
+    if (this.lookTarget === 1 && !this.lookShot && this.now - this.lookStart > 1500 && this.lookY > 0.9) { this.lookShot = true; this.takePhoto(); }
     const pal = PAL[seg.tod];
     const lift = this.lookY * 380; // 見上げると世界が下へ
 
@@ -277,6 +327,7 @@ export class WalkScene extends Phaser.Scene {
 
     const g = this.gLegs; g.clear();
     const off = -this.camX;
+    this.gGround && this.drawExtras(this.gGround, pal, lift);
     if (seg.kind === 'cafe') this.drawCafe(g, pal, lift);
     else if (seg.kind === 'cutscene') this.drawStairs(g, pal, lift);
     else if (seg.kind === 'end') this.drawEnd(g, pal, lift);
@@ -308,7 +359,8 @@ export class WalkScene extends Phaser.Scene {
       o.fillStyle(pal.light, this.harmonyGlow * 0.18); o.fillCircle(fx, GY - 40 + lift, 70 + 30 * this.harmonyGlow);
     }
     // 見上げた時: まぶたと、にじみ
-    if (this.lookY > 0.05) this.drawLookOverlay(o, seg);
+    if (this.lookY > 0.05 && this.cleanFrames <= 0) this.drawLookOverlay(o, seg);
+    if (this.cleanFrames > 0) this.cleanFrames--;
     this.paper.tilePositionX = this.camX * 0.3;
 
     if (this.dbg) {
@@ -345,7 +397,8 @@ export class WalkScene extends Phaser.Scene {
     const gr = this.gGround; gr.clear();
     const hasImg = !!this.bgImg;
     const cx = this.camX;
-    if (!hasImg) {
+    const indoor = seg.kind === 'cafe' || seg.kind === 'cutscene' || seg.kind === 'end';
+    if (!hasImg && !indoor) {
       // 遠景: 塀・建物の下端(パララックス 0.5)
       const par = 0.5, unit = 180;
       const start = Math.floor((cx * par) / unit) - 1;
@@ -370,6 +423,7 @@ export class WalkScene extends Phaser.Scene {
       }
     }
     // 地面(手前、等速)
+    if (indoor) return;
     const groundCol = seg.kind === 'barefoot' ? 0x7c9a5e : pal.ground;
     gr.fillStyle(groundCol, hasImg ? 0.0 : 1); gr.fillRect(0, GY + lift, W, H - GY + 400);
     gr.lineStyle(3, pal.line, 0.55); gr.lineBetween(0, GY + lift + 1, W, GY + lift + 1);
@@ -393,6 +447,30 @@ export class WalkScene extends Phaser.Scene {
     }
   }
 
+  private drawExtras(g: Phaser.GameObjects.Graphics, pal: (typeof PAL)['morning'], lift: number) {
+    if (this.bigPuddleX > -9000) {
+      const x = this.bigPuddleX - this.camX;
+      if (x > -300 && x < W + 300) {
+        g.fillStyle(pal.sky[0], 1); g.fillEllipse(x, GY + 30 + lift, 260, 30);
+        g.fillStyle(0xffffff, 0.7); g.fillEllipse(x - 40, GY + 27 + lift, 70, 8); g.fillEllipse(x + 30, GY + 33 + lift, 40, 5);
+        g.lineStyle(2, pal.line, 0.25); g.strokeEllipse(x, GY + 30 + lift, 260, 30);
+      }
+    }
+    if (this.bike >= 0) {
+      const k = (this.now - this.bike) / 1600;
+      if (k > 1) this.bike = -1;
+      else {
+        const x = W + 120 - k * (W + 400), y = GY - 46 + lift - 10;
+        for (const dx of [0, 150]) {
+          g.lineStyle(4, 0x2b2b2b, 0.85); g.strokeCircle(x + dx, y, 46);
+          g.lineStyle(1, 0x2b2b2b, 0.5);
+          for (let a = 0; a < 8; a++) { const r = a * Math.PI / 4 + k * 30; g.lineBetween(x + dx, y, x + dx + Math.cos(r) * 44, y + Math.sin(r) * 44); }
+        }
+        g.lineStyle(5, 0x6c8fb0, 1); g.lineBetween(x, y, x + 75, y - 70); g.lineBetween(x + 75, y - 70, x + 150, y);
+      }
+    }
+  }
+
   /** 片足ずつ。heelX は地面上のかかとの位置(画面座標) */
   private drawRig(g: Phaser.GameObjects.Graphics, rig: Rig, off: number, lift: number, facing: number, bare: boolean, pal: (typeof PAL)['morning']) {
     const isMe = rig.kind === 'me';
@@ -402,9 +480,12 @@ export class WalkScene extends Phaser.Scene {
     const hipX = (pos[0] + pos[1]) / 2 + off;
     for (let i = 0; i < 2; i++) {
       const f = order[i]; const a = rig[f];
-      const x = pos[i] + off; const y = GY - this.footLift(a) + lift - shuffleBob;
+      const depth = isMe ? 0 : -14;
+      const x = pos[i] + off; const y = GY + depth - this.footLift(a) + lift - shuffleBob;
       const far = f === 'L';
-      this.drawLeg(g, x, y, hipX + (far ? -8 : 8), -160 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : 0.25) : 0, pal);
+      const hint = !isMe && this.holdOn && f === 'R';
+      const hy = hint ? Math.max(0, Math.sin(this.now / 380)) * 7 : 0;
+      this.drawLeg(g, x, y - hy, hipX + (far ? -8 : 8), -160 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : hint ? 0.5 : 0.15) : 0, pal);
     }
   }
 
@@ -529,9 +610,9 @@ export class WalkScene extends Phaser.Scene {
     g.lineStyle(2, pal.line, 0.8); g.strokeRoundedRect(x, GY - 22, 70, 22, 8);
     g.lineStyle(1, 0x6b4a22, 0.9); g.lineBetween(x + 4, GY - 16, x + 12, GY - 12);
     g.fillStyle(0xffffff, 0.9); g.fillRect(x + 140, GY - 6, 14, 6);
-    if (tt > 6000) {
+    if (tt > this.morningAt) {
       // 翌朝、光が差して、また靴に足が入る
-      const p = Math.min(1, (tt - 6000) / 1500);
+      const p = Math.min(1, (tt - this.morningAt) / 1500);
       g.fillStyle(0xfff6dc, 0.5 * p); g.fillRect(0, 0, W, H);
     }
     void lift;
@@ -540,10 +621,29 @@ export class WalkScene extends Phaser.Scene {
   private endSequence() {
     const by = this.add.text(W / 2, H * 0.36, t('title'), { fontFamily: '"Zen Maru Gothic", sans-serif', fontSize: '44px', color: '#f3e7cf' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
     const sub = this.add.text(W / 2, H * 0.36 + 52, t('credit'), { fontFamily: 'sans-serif', fontSize: '13px', color: '#f3e7cf', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    this.tweens.add({ targets: [by, sub], alpha: 0.9, duration: 2000, delay: 1200, hold: 2600, yoyo: true });
-    this.time.delayedCall(7000, () => { snd.footstep('wood', 'L', 0.8); snd.note('piano', 72, 0.4, { dur: 2 }); });
-    this.time.delayedCall(7700, () => { snd.footstep('wood', 'R', 0.8); snd.squeak(0.25); snd.note('piano', 79, 0.35, { dur: 2.5 }); });
-    this.time.delayedCall(9200, () => {
+    this.tweens.add({ targets: [by, sub], alpha: 0.9, duration: 2000, delay: 800, hold: 1800, yoyo: true });
+    // 一日の写真を見返す(思ったより晴れている)
+    const n = this.photos.length;
+    const tones = [72, 76, 79, 84, 81, 79, 76, 74];
+    this.photos.forEach((key, i) => {
+      this.time.delayedCall(5200 + i * 650, () => {
+        const cols = Math.min(4, Math.max(1, n));
+        const row = Math.floor(i / cols), col = i % cols;
+        const cw = 210, ch = 130;
+        const x0 = W / 2 - ((Math.min(n, cols) - 1) * (cw + 16)) / 2;
+        const x = x0 + col * (cw + 16), y = H * 0.32 + row * (ch + 24);
+        const frame = this.add.rectangle(x, y, cw + 12, ch + 26, 0xfbf8f1).setScrollFactor(0).setDepth(71).setAngle((i % 3 - 1) * 3).setAlpha(0);
+        const im = this.add.image(x, y - 6, key).setScrollFactor(0).setDepth(72).setDisplaySize(cw, ch).setAngle(frame.angle).setAlpha(0);
+        this.tweens.add({ targets: [frame, im], alpha: 1, y: '-=8', duration: 700 });
+        snd.note('piano', tones[i % tones.length], 0.3, { dur: 2 });
+        this.time.delayedCall(4200 + (n - i) * 300, () => this.tweens.add({ targets: [frame, im], alpha: 0, duration: 900 }));
+      });
+    });
+    const tMorning = 5200 + n * 650 + 4600;
+    this.time.delayedCall(tMorning, () => { snd.footstep('wood', 'L', 0.8); snd.note('piano', 72, 0.4, { dur: 2 }); });
+    this.time.delayedCall(tMorning + 700, () => { snd.footstep('wood', 'R', 0.8); snd.squeak(0.25); snd.note('piano', 79, 0.35, { dur: 2.5 }); });
+    this.morningAt = tMorning;
+    this.time.delayedCall(tMorning + 2200, () => {
       const again = this.add.text(W / 2, H * 0.6, t('again'), { fontFamily: 'sans-serif', fontSize: '18px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
       this.tweens.add({ targets: again, alpha: 0.8, duration: 1500 });
       setFootHandler(() => { setFootHandler(() => {}); this.scene.restart(); });

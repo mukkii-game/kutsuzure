@@ -201,6 +201,7 @@ let bgm: HTMLAudioElement | null = null;
 export function music(file: string | null, vol = 0.6) {
   if (bgm) { const b = bgm; const fade = setInterval(() => { b.volume = Math.max(0, b.volume - 0.05); if (b.volume <= 0) { clearInterval(fade); b.pause(); } }, 80); bgm = null; }
   if (!file || isMuted()) return;
+  if (!manifest.some((e) => e.path.endsWith(file))) return; // 届いた曲だけ(manifest に載せる)
   const a = new Audio(`./audio/music/${file}`);
   a.volume = 0; a.loop = false;
   a.play().then(() => { const up = setInterval(() => { a.volume = Math.min(vol, a.volume + 0.03); if (a.volume >= vol) clearInterval(up); }, 80); }).catch(() => {});
