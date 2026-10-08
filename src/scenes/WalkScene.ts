@@ -140,7 +140,7 @@ export class WalkScene extends Phaser.Scene {
       case 'step': {
         this.animFoot(this.me, e.foot, this.w.x * tune('walk.stride'));
         this.fadeTitle();
-        const surface = seg.kind === 'barefoot' ? 'bare' : seg.bg === 'genkan' ? 'wood' : seg.bg === 'grass' ? 'grass' : 'concrete';
+        const surface = seg.kind === 'barefoot' ? 'soft' : seg.bg === 'genkan' ? 'wood' : seg.bg === 'shotengai' ? 'subway' : 'boot';
         snd.footstep(surface, e.foot, seg.kind === 'barefoot' ? 0.8 : 1);
         const n = noteAt(e.idx, seg.verse);
         const minimal = mode === 'minimal' && seg.verse === 1;
@@ -188,7 +188,8 @@ export class WalkScene extends Phaser.Scene {
       case 'friendStep': {
         const fx = this.w.friend.x * tune('walk.stride');
         this.animFoot(this.fr, e.foot, fx);
-        if (this.w.friend.mode !== 'sync') snd.footstep(seg.kind === 'barefoot' ? 'bare' : 'concrete', e.foot, 0.35);
+        if (this.w.friend.mode !== 'sync') snd.footstep(seg.kind === 'barefoot' ? 'soft' : 'concrete', e.foot, 0.35);
+        else snd.footstep(seg.kind === 'barefoot' ? 'grass' : 'concrete', e.foot, 0.25);
         break;
       }
       case 'friendGlance': this.glanceUntil = this.now + 700; break;

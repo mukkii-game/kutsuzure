@@ -5,8 +5,8 @@ import { Rng } from '../core/rng';
 
 const fxRng = new Rng(7); // 音のゆらぎ専用(ゲームの中身には使わない)
 
-interface Entry { path: string; kind: string; instrument?: string; midi?: number; name?: string }
-interface Sample { buf: AudioBuffer; midi: number }
+interface Entry { path: string; kind: string; instrument?: string; midi?: number; name?: string; cents?: number | null }
+interface Sample { buf: AudioBuffer; midi: number; cents: number }
 
 let ctx: AudioContext | null = null;
 let master: GainNode, filter: BiquadFilterNode, dry: GainNode, wet: GainNode, verb: ConvolverNode;
@@ -56,7 +56,7 @@ async function loadAll() {
       if (e.kind === 'inst' && e.instrument && typeof e.midi === 'number') {
         const k = family(e.instrument);
         if (!inst.has(k)) inst.set(k, []);
-        inst.get(k)!.push({ buf, midi: e.midi });
+        inst.get(k)!.push({ buf, midi: e.midi, cents: e.cents ?? 0 });
       } else if (e.kind === 'amb') {
         ambBufs.set(e.name ?? e.path, buf);
       } else {
@@ -68,6 +68,7 @@ async function loadAll() {
   }));
   for (const arr of inst.values()) arr.sort((a, b) => a.midi - b.midi);
   loaded = true;
+  if (pendingAmb) { const n = pendingAmb; pendingAmb = undefined; ambience(n); }
 }
 
 function family(name: string): string {
@@ -100,7 +101,7 @@ export function note(fam: string, midi: number, vel = 0.6, opts: { cents?: numbe
     let best = list[0];
     for (const s of list) if (Math.abs(s.midi - midi) < Math.abs(best.midi - midi)) best = s;
     const src = c.createBufferSource(); src.buffer = best.buf;
-    src.playbackRate.value = Math.pow(2, (midi - best.midi + (opts.cents ?? 0) / 100) / 12);
+    src.playbackRate.value = Math.pow(2, (midi - best.midi + ((opts.cents ?? 0) - best.cents) / 100) / 12);
     g.gain.setValueAtTime(vol, t0);
     src.connect(g); src.start(t0);
     if (opts.dur) { g.gain.setTargetAtTime(0, t0 + opts.dur, 0.08); src.stop(t0 + opts.dur + 0.6); }
@@ -162,7 +163,7 @@ export function muffle(on: boolean) {
 
 export function footstep(surface: string, foot: 'L' | 'R', vol = 1) {
   const v = tune('snd.steps') * vol;
-  if (play(`step_${surface}`, v * 0.7, foot === 'R' ? 1.06 : 0.96, foot === 'R' ? 0.15 : -0.15)) return;
+  if (play(`step/${surface}`, v * 0.7, foot === 'R' ? 1.06 : 0.96, foot === 'R' ? 0.15 : -0.15)) return;
   if (!ctx || isMuted()) return;
   const c = ctx, t = c.currentTime;
   const n = noise(c, 0.06), lp = c.createBiquadFilter(), g = c.createGain();
@@ -180,8 +181,9 @@ function noise(c: AudioContext, sec: number) {
 
 // 環境音(ループ、場面ごとにクロスフェード)
 let ambNow: { src: AudioBufferSourceNode; g: GainNode; name: string } | null = null;
+let pendingAmb: string | undefined;
 export function ambience(name: string | undefined) {
-  if (!ctx) return;
+  if (!ctx || !loaded) { pendingAmb = name; return; }
   if (ambNow?.name === name) return;
   const c = ctx, t = c.currentTime;
   if (ambNow) { const old = ambNow; old.g.gain.setTargetAtTime(0, t, 0.8); setTimeout(() => { try { old.src.stop(); } catch { /* */ } }, 4000); ambNow = null; }

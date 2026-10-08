@@ -18,14 +18,14 @@ export interface Segment {
 }
 
 export const STORY: Segment[] = [
-  { id: 'genkan', kind: 'walk', verse: 1, bg: 'genkan', tod: 'morning', steps: 6, blister: [0, 0], friend: 'none', amb: 'birds' },
-  { id: 'street', kind: 'walk', verse: 1, bg: 'street_m', tod: 'morning', steps: 32, blister: [0, 0.35], friend: 'lead', friendStart: 4, amb: 'birds' },
-  { id: 'shotengai', kind: 'walk', verse: 1, bg: 'shotengai', tod: 'noon', steps: 28, blister: [0.35, 0.75], friend: 'keep', amb: 'town' },
-  { id: 'crosswalk', kind: 'walk', verse: 1, bg: 'crosswalk', tod: 'noon', steps: 16, blister: [0.75, 0.9], friend: 'keep', amb: 'town' },
-  { id: 'cafe', kind: 'cafe', verse: 1, bg: 'cafe', tod: 'cafe', ms: 14000, blister: [0.9, 0.9], friend: 'sit', amb: 'cafe' },
-  { id: 'evening', kind: 'walk', verse: 2, bg: 'street_e', tod: 'evening', steps: 30, blister: [1, 1], friend: 'lead', friendStart: 2, waitSync: true, amb: 'evening' },
-  { id: 'together', kind: 'walk', verse: 2, bg: 'street_e2', tod: 'evening', steps: 22, blister: [1, 1], friend: 'sync', amb: 'evening' },
+  { id: 'genkan', kind: 'walk', verse: 1, bg: 'genkan', tod: 'morning', steps: 6, blister: [0, 0], friend: 'none', amb: 'morning_birds' },
+  { id: 'street', kind: 'walk', verse: 1, bg: 'street_m', tod: 'morning', steps: 46, blister: [0, 0.35], friend: 'lead', friendStart: 4, amb: 'morning_birds' },
+  { id: 'shotengai', kind: 'walk', verse: 1, bg: 'shotengai', tod: 'noon', steps: 40, blister: [0.35, 0.75], friend: 'keep', amb: 'city_traffic' },
+  { id: 'crosswalk', kind: 'walk', verse: 1, bg: 'crosswalk', tod: 'noon', steps: 24, blister: [0.75, 0.9], friend: 'keep', amb: 'city_traffic' },
+  { id: 'cafe', kind: 'cafe', verse: 1, bg: 'cafe', tod: 'cafe', ms: 14000, blister: [0.9, 0.9], friend: 'sit', amb: 'birds_light' },
+  { id: 'evening', kind: 'walk', verse: 2, bg: 'street_e', tod: 'evening', steps: 40, blister: [1, 1], friend: 'lead', friendStart: 2, waitSync: true, amb: 'evening_outdoor' },
+  { id: 'together', kind: 'walk', verse: 2, bg: 'street_e2', tod: 'evening', steps: 32, blister: [1, 1], friend: 'sync', amb: 'evening_outdoor' },
   { id: 'stairs', kind: 'cutscene', verse: 3, bg: 'stairs', tod: 'dusk', ms: 9000, blister: [0, 0], friend: 'sit', amb: 'river' },
-  { id: 'barefoot', kind: 'barefoot', verse: 3, bg: 'grass', tod: 'dusk', steps: 34, blister: [0, 0], friend: 'sync', amb: 'river' },
-  { id: 'home', kind: 'end', verse: 3, bg: 'genkan_n', tod: 'night', ms: 9000, blister: [0, 0], friend: 'none' },
+  { id: 'barefoot', kind: 'barefoot', verse: 3, bg: 'grass', tod: 'dusk', steps: 44, blister: [0, 0], friend: 'sync', amb: 'river' },
+  { id: 'home', kind: 'end', verse: 3, bg: 'genkan_n', tod: 'night', ms: 9000, blister: [0, 0], friend: 'none', amb: 'night_crickets' },
 ];

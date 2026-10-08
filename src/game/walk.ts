@@ -48,6 +48,7 @@ export class Walk {
   // 友だち
   friend = { mode: 'none' as FriendMode, x: 3, foot: 'R' as Foot, nextT: 0, interval: 520, facing: 1, glanceUntil: 0, lastT: -1e9 };
   synced = false;
+  private returnT = 0;
 
   // 物語
   segIndex = 0;
@@ -127,6 +128,12 @@ export class Walk {
     if (this.friend.mode === 'lead') {
       const d = Math.min(Math.abs(t - this.friend.lastT), Math.abs(this.friend.nextT - t));
       aligned = d < tune('align.window');
+      if (s.verse === 1 && interval < 1200) {
+        // 1番: 友だちの足は、こちらが一定に歩けば揃いにくる(位相を少し寄せる)
+        const want = t + interval;
+        const diff = want - this.friend.nextT;
+        if (Math.abs(diff) < 260) this.friend.nextT += diff * tune('friend.lock');
+      }
     }
     if (this.friend.mode === 'sync') {
       // 友だちはこちらと同じ瞬間に同じ足を出す
@@ -175,7 +182,7 @@ export class Walk {
 
   private triggerReturn() {
     if (this.friend.mode === 'return' || this.friend.mode === 'sync') return;
-    this.friend.mode = 'return'; this.friend.facing = -1;
+    this.friend.mode = 'return'; this.friend.facing = -1; this.returnT = this.t;
     this.events.push({ type: 'friendReturn' });
   }
 
@@ -232,7 +239,7 @@ export class Walk {
       const target = this.x + 1.0;
       f.x += (target - f.x) * Math.min(1, dt / 350);
       if (t >= f.nextT) { f.foot = f.foot === 'L' ? 'R' : 'L'; f.nextT = t + 260; this.events.push({ type: 'friendStep', foot: f.foot, t }); }
-      if (Math.abs(f.x - target) < 0.15) { f.mode = 'sync'; f.facing = 1; this.synced = true; this.events.push({ type: 'friendSync' }); }
+      if (Math.abs(f.x - target) < 0.6 || this.t - this.returnT > 1800) { f.mode = 'sync'; f.facing = 1; this.synced = true; this.events.push({ type: 'friendSync' }); }
     }
 
     // 歩かない場面
