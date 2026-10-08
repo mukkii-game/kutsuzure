@@ -485,49 +485,75 @@ export class WalkScene extends Phaser.Scene {
       const far = f === 'L';
       const hint = !isMe && this.holdOn && f === 'R';
       const hy = hint ? Math.max(0, Math.sin(this.now / 380)) * 7 : 0;
-      this.drawLeg(g, x, y - hy, hipX + (far ? -8 : 8), -160 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : hint ? 0.5 : 0.15) : 0, pal);
+      this.drawLeg(g, x, y - hy, hipX + (far ? -8 : 8), -160 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : hint ? 0.5 : 0.15) : 0, pal, this.footLift(a) / 14);
     }
   }
 
-  private drawLeg(g: Phaser.GameObjects.Graphics, x: number, y: number, hipX: number, hipY: number, facing: number, isMe: boolean, far: boolean, bare: boolean, red: number, pal: (typeof PAL)['morning']) {
-    const shade = (c: number) => far ? Phaser.Display.Color.IntegerToColor(c).darken(14).color : c;
-    const ankleX = x - facing * 4, ankleY = y - 24;
-    // すね(ズボン)
+  /** 8fps で揺れるインクの線(ボイリング) */
+  private jit(i: number, amp = 1.2) {
+    const f = Math.floor(this.now / 125);
+    const h = Math.sin(i * 12.9898 + f * 78.233) * 43758.5453;
+    return (h - Math.floor(h) - 0.5) * 2 * amp;
+  }
+  private wob(pts: { x: number; y: number }[], seed: number, amp = 1.1) {
+    return pts.map((p, i) => ({ x: p.x + this.jit(seed + i * 2, amp), y: p.y + this.jit(seed + i * 2 + 1, amp) }));
+  }
+
+  private drawLeg(g: Phaser.GameObjects.Graphics, x: number, y: number, hipX: number, hipY: number, facing: number, isMe: boolean, far: boolean, bare: boolean, red: number, pal: (typeof PAL)['morning'], bend = 0) {
+    const shade = (c: number) => far ? Phaser.Display.Color.IntegerToColor(c).darken(16).color : c;
+    const seed = (isMe ? 100 : 300) + (far ? 50 : 0);
+    const ankleX = x - facing * 10, ankleY = y - (bare ? 14 : 22);
+    // ひざ: 腰と足首の間、前へ少し曲がる
+    const kneeY = ankleY - 175;
+    const kneeX = ankleX + (hipX - ankleX) * 0.45 + facing * (8 + bend * 26);
     const pants = shade(isMe ? 0x2c3a5e : 0xd8c8a8);
+    const skin = shade(0xe8b896);
     const sock = shade(bare ? 0xe8b896 : isMe ? 0xf2f0ea : 0xe9e2d2);
-    const hemY = ankleY - (bare ? 70 : 46);
-    const tx = (yy: number) => ankleX + (hipX - ankleX) * ((ankleY - yy) / (ankleY - hipY));
-    g.fillStyle(sock, 1);
-    g.fillPoints(<any>[{ x: tx(hemY) - 11, y: hemY }, { x: tx(hemY) + 11, y: hemY }, { x: ankleX + 10, y: ankleY + 4 }, { x: ankleX - 10, y: ankleY + 4 }], true);
-    g.fillStyle(pants, 1);
-    g.fillPoints(<any>[{ x: tx(hipY) - 24, y: hipY }, { x: tx(hipY) + 24, y: hipY }, { x: tx(hemY) + 17, y: hemY }, { x: tx(hemY) - 17, y: hemY }], true);
-    g.lineStyle(2, pal.line, 0.7);
-    g.lineBetween(tx(hipY) - 24, hipY, tx(hemY) - 17, hemY); g.lineBetween(tx(hipY) + 24, hipY, tx(hemY) + 17, hemY);
-    g.lineBetween(tx(hemY) - 17, hemY, tx(hemY) + 17, hemY);
+    const hemY = ankleY - (bare ? 66 : 40);
+    const along = (yy: number) => kneeX + (ankleX - kneeX) * ((yy - kneeY) / (ankleY - kneeY));
+    // 靴下 / 素足のすね
+    g.fillStyle(bare ? skin : sock, 1);
+    g.fillPoints(<any>this.wob([{ x: along(hemY) - 10, y: hemY }, { x: along(hemY) + 10, y: hemY }, { x: ankleX + 9, y: ankleY + 6 }, { x: ankleX - 10, y: ankleY + 6 }], seed), true);
+    // ズボン: もも → ひざ → すそ(少し広がる)
+    const P = this.wob([
+      { x: hipX - 26, y: hipY }, { x: hipX + 26, y: hipY },
+      { x: kneeX + 20, y: kneeY }, { x: along(hemY) + 18, y: hemY },
+      { x: along(hemY) - 18, y: hemY }, { x: kneeX - 20, y: kneeY },
+    ], seed + 20);
+    g.fillStyle(pants, 1); g.fillPoints(<any>P, true);
+    // ひだの影
+    g.fillStyle(0x000000, 0.08); g.fillPoints(<any>[P[2], { x: kneeX + 6, y: kneeY + 30 }, { x: P[3].x - 4, y: hemY }, P[3]], true);
+    g.lineStyle(2, pal.line, 0.75); g.strokePoints(<any>P, true);
+    if (bare) { g.lineStyle(1.5, pal.line, 0.5); for (let k = 0; k < 2; k++) g.lineBetween(P[4].x, hemY + 5 + k * 5, P[3].x, hemY + 5 + k * 5); }
     // 靴(または素足)
-    const L = 64, Hh = bare ? 16 : 26;
-    const heel = x - facing * L * 0.42, toe = x + facing * L * 0.58;
+    const L = bare ? 58 : 68, Hh = bare ? 15 : 27;
+    const heel = x - facing * L * 0.4, toe = x + facing * L * 0.6;
     if (bare) {
-      g.fillStyle(shade(0xe8b896), 1);
-      g.fillEllipse((heel + toe) / 2, y - 7, L * 0.95, Hh);
-      g.lineStyle(2, pal.line, 0.6); g.strokeEllipse((heel + toe) / 2, y - 7, L * 0.95, Hh);
-      if (isMe && !far) { g.fillStyle(0xffffff, 0.95); g.fillRect(heel - 2, y - 16, 12, 9); }
-      if (!isMe && !far) { g.fillStyle(0xd0484c, 0.5); g.fillCircle(heel + 4, y - 9, 6); }
+      const F = this.wob([
+        { x: heel, y: y - 2 }, { x: heel - facing * 3, y: y - 9 }, { x: heel + facing * 6, y: y - Hh }, { x: ankleX + facing * 12, y: y - Hh - 2 },
+        { x: toe - facing * 16, y: y - 9 }, { x: toe - facing * 2, y: y - 7 }, { x: toe, y: y - 2 }, { x: toe - facing * 4, y: y },
+      ], seed + 40);
+      g.fillStyle(skin, 1); g.fillPoints(<any>F, true);
+      g.lineStyle(2, pal.line, 0.65); g.strokePoints(<any>F, true);
+      if (isMe && !far) { g.fillStyle(0xffffff, 0.95); g.fillRect(heel - facing * 1 - 5, y - 15, 11, 9); g.lineStyle(1, pal.line, 0.4); g.strokeRect(heel - facing * 1 - 5, y - 15, 11, 9); }
+      if (!isMe && !far) { g.fillStyle(0xd0484c, 0.55); g.fillCircle(heel + facing * 3, y - 8, 6); }
       return;
     }
     const body = shade(isMe ? 0xd6a43a : 0xf7f6f0);
-    g.fillStyle(body, 1);
-    g.fillPoints(<any>[
-      { x: heel, y: y - 2 }, { x: heel, y: y - Hh + 2 }, { x: heel + facing * 18, y: y - Hh - 2 },
-      { x: x + facing * 6, y: y - Hh + 4 }, { x: toe - facing * 6, y: y - 12 }, { x: toe, y: y - 4 }, { x: toe - facing * 2, y: y },
-    ], true);
-    g.fillStyle(shade(isMe ? 0x6b4a22 : 0xc9c4b8), 1); g.fillRect(Math.min(heel, toe), y - 3, L, 4);
-    g.lineStyle(2, pal.line, 0.75);
-    g.strokePoints(<any>[
-      { x: heel, y: y - 2 }, { x: heel, y: y - Hh + 2 }, { x: heel + facing * 18, y: y - Hh - 2 },
-      { x: x + facing * 6, y: y - Hh + 4 }, { x: toe - facing * 6, y: y - 12 }, { x: toe, y: y - 4 }, { x: toe - facing * 2, y: y },
-    ], true);
-    if (red > 0.02) { g.fillStyle(0xc43034, Math.min(0.85, red)); g.fillCircle(heel + facing * 4, y - Hh + 4, 4 + red * 5); }
+    const S = this.wob([
+      { x: heel, y: y - 1 }, { x: heel - facing * 2, y: y - Hh * 0.5 }, { x: heel + facing * 2, y: y - Hh + 1 },
+      { x: heel + facing * 20, y: y - Hh - 1 }, { x: x + facing * 4, y: y - Hh + 6 }, { x: toe - facing * 14, y: y - 15 },
+      { x: toe - facing * 3, y: y - 11 }, { x: toe + facing * 1, y: y - 5 }, { x: toe - facing * 2, y: y },
+    ], seed + 60);
+    g.fillStyle(body, 1); g.fillPoints(<any>S, true);
+    // 光と影
+    g.fillStyle(0xffffff, isMe ? 0.25 : 0.4); g.fillEllipse(x + facing * 4, y - Hh + 10, L * 0.4, 5);
+    g.fillStyle(shade(isMe ? 0x6b4a22 : 0xc9c4b8), 1); g.fillRect(Math.min(heel, toe) + 1, y - 4, L - 2, 5);
+    g.lineStyle(2, pal.line, 0.8); g.strokePoints(<any>S, true);
+    // 靴ひも/ステッチ
+    g.lineStyle(1, pal.line, 0.45);
+    for (let k = 0; k < 3; k++) { const sx = x + facing * (6 + k * 7); g.lineBetween(sx, y - Hh + 6 + k * 3, sx + facing * 5, y - Hh + 4 + k * 3); }
+    if (red > 0.02) { g.fillStyle(0xc43034, Math.min(0.85, red)); g.fillCircle(heel + facing * 5, y - Hh + 5, 3 + red * 5); }
   }
 
   private drawCafe(g: Phaser.GameObjects.Graphics, pal: (typeof PAL)['morning'], lift: number) {

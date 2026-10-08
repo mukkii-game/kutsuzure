@@ -1,19 +1,52 @@
 {
-  "slug": "game",
-  "title": "",
-  "tagline": "",
+  "slug": "kutsuzure",
+  "title": "くつずれ",
+  "tagline": "一歩が一音になる。痛い足をかばうと、曲が跳ねる。",
   "author": "MUKKII",
-  "playUrl": "",
-  "zipName": "game-html5.zip",
-  "tags": ["#個人開発", "#インディーゲーム", "#ブラウザゲーム"],
+  "playUrl": "https://mukkii-game.github.io/kutsuzure/",
+  "zipName": "kutsuzure-html5.zip",
+  "tags": [
+    "#個人開発",
+    "#インディーゲーム",
+    "#ブラウザゲーム",
+    "#くつずれ"
+  ],
   "texts": [
-    { "id": "catch", "label": "キャッチコピー(1行)", "body": "" },
-    { "id": "short", "label": "短い紹介(100字・概要欄向け)", "body": "" },
-    { "id": "long", "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)", "body": "" },
-    { "id": "short-en", "label": "Short description (English)", "body": "" },
-    { "id": "controls-en", "label": "Controls (English)", "body": "" },
-    { "id": "x-a", "label": "X: 公開告知", "body": "" },
-    { "id": "x-b", "label": "X: 仕掛けで引く", "body": "" }
+    {
+      "id": "catch",
+      "label": "キャッチコピー(1行)",
+      "body": "くつずれた足をかばうと、足音がスキップになった。"
+    },
+    {
+      "id": "short",
+      "label": "短い紹介(100字・概要欄向け)",
+      "body": "おろしたての靴で友だちと出かける一日。左右の足をタップして歩くと、一歩が一音になる。くつずれた右足をかばうと、伴奏が跳ねて楽しくなる。言葉のない5分の散歩。"
+    },
+    {
+      "id": "long",
+      "label": "長い紹介(配布ページ本文。操作説明はスマホを先に)",
+      "body": "【遊び方】スマホ: 画面の左半分をタップで左足、右半分で右足。PC: F / J キー(← / → でも可)。\n\nおろしたての靴で、友だちと町へ出かける一日。\n一歩が一音になり、歩くと曲になります。\n右のかかとがくつずれてきたら、どう歩くかはあなた次第。\n立ち止まると、空を見上げます。\n\n言葉はほとんどありません。約5分。音を出して遊んでください。\n\n絵・音の出典は CREDITS をご覧ください。"
+    },
+    {
+      "id": "short-en",
+      "label": "Short description (English)",
+      "body": "A wordless 5-minute walk. Every step is a note. When your new shoes give you a blister, limp to protect your heel — and the music starts to swing."
+    },
+    {
+      "id": "controls-en",
+      "label": "Controls (English)",
+      "body": "Mobile: tap the left half of the screen for your left foot, the right half for your right foot. PC: F / J (or ← / →). Stop walking to look up at the sky. Sound on, please."
+    },
+    {
+      "id": "x-a",
+      "label": "X: 公開告知",
+      "body": "新作『くつずれ』公開しました。\n一歩が一音になる、言葉のない5分の散歩ゲームです。\nくつずれた足をかばうと、曲が跳ねます。\nhttps://mukkii-game.github.io/kutsuzure/"
+    },
+    {
+      "id": "x-b",
+      "label": "X: 仕掛けで引く",
+      "body": "痛い足をかばって歩いたら、足音がスキップに聞こえた。\nそれをそのままゲームにしました。音を出してどうぞ。\nhttps://mukkii-game.github.io/kutsuzure/"
+    }
   ],
   "sites": [
     {
@@ -21,36 +54,56 @@
       "label": "itch.io",
       "auto": true,
       "uploadUrl": "https://itch.io/dashboard",
-      "note": "publish-itch ワークフローのボタンで公開。ページ設定: Kind=HTML / Embed in page / Viewport 540×720 / Mobile friendly / Fullscreen / Auto start。Languages=Japanese, English。AI generation disclosure=Yes(コード・絵・音のどれに使ったか)。",
-      "use": ["catch", "short", "long", "short-en", "controls-en"]
+      "note": "publish-itch ワークフローのボタンで公開。ページ設定: Kind=HTML / Embed in page / Viewport 960×540 / Mobile friendly / Fullscreen / Auto start。Languages=Japanese, English。AI generation disclosure=Yes(コード・絵・音のどれに使ったか)。",
+      "use": [
+        "catch",
+        "short",
+        "long",
+        "short-en",
+        "controls-en"
+      ]
     },
     {
       "id": "plicy",
       "label": "PLiCy",
       "uploadUrl": "https://plicy.net/GameRegist",
       "note": "ZIP を上げる(index.html が直下の形で出してある)。スマホのプレイが多いので操作説明はスマホを先に。",
-      "use": ["catch", "short", "long"]
+      "use": [
+        "catch",
+        "short",
+        "long"
+      ]
     },
     {
       "id": "freem",
       "label": "ふりーむ!",
       "uploadUrl": "https://www.freem.ne.jp/",
       "note": "ZIP 配布。審査があり公開まで数日かかることがある。",
-      "use": ["catch", "short", "long"]
+      "use": [
+        "catch",
+        "short",
+        "long"
+      ]
     },
     {
       "id": "newgrounds",
       "label": "Newgrounds",
       "uploadUrl": "https://www.newgrounds.com/projects/games",
       "note": "英語圏。説明は英語の文面を使う。",
-      "use": ["short-en", "controls-en"]
+      "use": [
+        "short-en",
+        "controls-en"
+      ]
     },
     {
       "id": "x",
       "label": "X",
       "uploadUrl": "https://x.com/compose/post",
       "note": "プレイ中の画像か動画を付ける。最初の 1 行で何のゲームか言い切る。",
-      "use": ["x-a", "x-b"]
+      "use": [
+        "x-a",
+        "x-b"
+      ]
     }
   ]
 }

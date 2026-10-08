@@ -47,3 +47,10 @@ plumbing with a Phaser 4 game template: direct push to main, one Pages
 workflow with a Playwright smoke check, one manual itch.io workflow, and a
 small `src/core` layer (save, i18n, audio, input, demo, meta). Rationale in
 mukkii-game/Perfect_Dev_Environment decisions of 2026-09-13.
+
+## 2026-10-08 — くつずれ: 一歩一音・かばうとシャッフル(A案)
+
+8 つの切り口 × 2 案を軸別の審査役(手触り・情感・新しさ・実現性・反対役)で絞り、3 案から人間が A 案を選んだ。
+伴奏は時計ではなく足に付ける(テンポを推定しない)。痛みはタイミング(右に乗る時間)で決め、長押しを使わない。
+楽器は合成ではなく VSCO-2-CE(CC0)の録音を一歩ごとに鳴らす。絵は AI 生成を人間経由で依頼し、届くまでコード描画で仮置き。
+ゲームの中身(src/game/walk.ts)は描画と分け、tools/bot.mjs で歩き方ごとのズキッ回数・合流を確かめる。
