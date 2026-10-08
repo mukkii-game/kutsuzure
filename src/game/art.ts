@@ -84,7 +84,26 @@ export function trimParts(scene: Phaser.Scene) {
     const w = src.width, h = src.height;
     const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
     const cx = cv.getContext('2d')!; cx.drawImage(src, 0, 0);
-    const d = cx.getImageData(0, 0, w, h).data;
+    const img = cx.getImageData(0, 0, w, h);
+    const d = img.data;
+    // 背景が白いまま届いた絵(Gemini 等)は、外側から白をたどって透明にする(線の内側の白い靴下は残る)
+    if (d[3] > 200 && d[(w * h - 1) * 4 + 3] > 200) {
+      const white = (i: number) => d[i] > 225 && d[i + 1] > 225 && d[i + 2] > 225;
+      const seen = new Uint8Array(w * h);
+      const stack: number[] = [];
+      for (let x = 0; x < w; x++) { stack.push(x, (h - 1) * w + x); }
+      for (let y = 0; y < h; y++) { stack.push(y * w, y * w + w - 1); }
+      while (stack.length) {
+        const p = stack.pop()!;
+        if (seen[p]) continue; seen[p] = 1;
+        if (!white(p * 4)) continue;
+        d[p * 4 + 3] = 0;
+        const x = p % w, y = (p / w) | 0;
+        if (x > 0) stack.push(p - 1); if (x < w - 1) stack.push(p + 1);
+        if (y > 0) stack.push(p - w); if (y < h - 1) stack.push(p + w);
+      }
+      cx.putImageData(img, 0, 0);
+    }
     let x0 = w, y0 = h, x1 = 0, y1 = 0;
     for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
       if (d[(y * w + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
