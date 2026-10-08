@@ -58,6 +58,8 @@ export class WalkScene extends Phaser.Scene {
   private bigPuddleX = -9999;
   private cleanFrames = 0;
   private morningAt = 1e9;
+  private lastStepAt = -1e9; private lastStepFoot: Foot = 'R';
+  private hintSteps = 0; // ズキッの後、何歩のあいだ「すぐ左」を光らせるか
 
   constructor() { super('Walk'); }
 
@@ -78,13 +80,13 @@ export class WalkScene extends Phaser.Scene {
     makeBlotTexture(this, 'blotRed', 'rgba(196,48,52,1)', 40);
     makeBlotTexture(this, 'blotLight', 'rgba(255,240,200,1)', 64);
 
-    this.gSky = this.add.graphics().setScrollFactor(0);
+    this.gSky = this.add.graphics().setScrollFactor(0).setDepth(-20);
     this.gBg = this.add.graphics().setScrollFactor(0);
     this.gGround = this.add.graphics().setScrollFactor(0);
     this.stains = this.add.container(0, 0);
     this.gLegs = this.add.graphics().setScrollFactor(0);
     this.gOver = this.add.graphics().setScrollFactor(0).setDepth(50);
-    this.paper = this.add.tileSprite(W / 2, H / 2, W, H, 'paper').setScrollFactor(0).setDepth(60).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0.55);
+    this.paper = this.add.tileSprite(W / 2, H / 2, W, H, 'paper').setScrollFactor(0).setDepth(60).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0.3);
 
     // タイトル(玄関で最初の一歩まで)
     this.titleText = this.add.text(W * 0.5, H * 0.3, t('title'), { fontFamily: '"Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif', fontSize: '56px', color: '#2f3a56' })
@@ -148,6 +150,8 @@ export class WalkScene extends Phaser.Scene {
     switch (e.type) {
       case 'step': {
         this.animFoot(this.me, e.foot, this.w.x * tune('walk.stride'));
+        this.lastStepAt = this.now; this.lastStepFoot = e.foot;
+        if (this.hintSteps > 0) this.hintSteps--;
         this.fadeTitle();
         const surface = seg.kind === 'barefoot' ? 'soft' : seg.bg === 'genkan' ? 'wood' : seg.bg === 'shotengai' ? 'subway' : 'boot';
         snd.footstep(surface, e.foot, seg.kind === 'barefoot' ? 0.8 : 1);
@@ -182,6 +186,7 @@ export class WalkScene extends Phaser.Scene {
         break;
       case 'zuki': {
         snd.zuki();
+        if (seg.verse === 1) this.hintSteps = 8;
         this.cameras.main.shake(160, tune<number>('juice.zukiShake'));
         this.flash = 1;
         if (navigator.vibrate) try { navigator.vibrate(14); } catch { /* */ }
@@ -287,8 +292,9 @@ export class WalkScene extends Phaser.Scene {
     const key = `bg_${seg.bg}`;
     if (this.bgImg) { this.bgImgOld?.destroy(); this.bgImgOld = this.bgImg; this.tweens.add({ targets: this.bgImgOld, alpha: 0, duration: 1500 }); this.bgImg = undefined; }
     if (hasTex(this, key)) {
-      const img = this.add.image(W / 2, H / 2, key).setScrollFactor(0).setDepth(-10).setAlpha(0);
-      const s = Math.max(W / img.width, H / img.height) * 1.08; img.setScale(s);
+      const img = this.add.image(0, H, key).setOrigin(0, 1).setScrollFactor(0).setDepth(-10).setAlpha(0);
+      const moving = seg.kind === 'walk' || seg.kind === 'barefoot';
+      const s = Math.max((W * (moving ? 1.35 : 1.02)) / img.width, H / img.height); img.setScale(s);
       this.tweens.add({ targets: img, alpha: 1, duration: 1500 });
       this.bgImg = img;
     }
@@ -323,7 +329,14 @@ export class WalkScene extends Phaser.Scene {
     this.drawSky(pal, lift, seg);
     this.drawBackground(pal, lift, seg);
     this.stains.x = -this.camX; this.stains.y = lift;
-    if (this.bgImg) { this.bgImg.y = H / 2 + lift; this.bgImg.x = W / 2 - ((this.camX - this.segStartX) * 0.08) % 40; }
+    if (this.bgImg) {
+      // 場面の進み具合に合わせて、遠景がゆっくり流れる
+      const k = Phaser.Math.Clamp(this.w.segSteps / Math.max(1, this.w.segLen()), 0, 1);
+      const span = Math.max(0, this.bgImg.displayWidth - W);
+      const tx = -span * k;
+      this.bgImg.x += (tx - this.bgImg.x) * 0.05;
+      this.bgImg.y = H + lift;
+    }
 
     const g = this.gLegs; g.clear();
     const off = -this.camX;
@@ -343,6 +356,7 @@ export class WalkScene extends Phaser.Scene {
       }
       // ふたりで揺れる(シャッフル中は弾む)
       this.drawRig(g, this.me, off, lift, 1, bare, pal);
+      this.drawToeHints(g, off, lift, pal);
     }
 
     // 痛み・ハモりの光
@@ -356,7 +370,7 @@ export class WalkScene extends Phaser.Scene {
     }
     if (this.harmonyGlow > 0.02 && !fixed) {
       const fx = (this.w.friend.x * stride + meX) / 2 - this.camX;
-      o.fillStyle(pal.light, this.harmonyGlow * 0.18); o.fillCircle(fx, GY - 40 + lift, 70 + 30 * this.harmonyGlow);
+      o.fillStyle(pal.light, this.harmonyGlow * 0.07); o.fillCircle(fx, GY - 40 + lift, 60 + 40 * this.harmonyGlow); o.fillStyle(pal.light, this.harmonyGlow * 0.07); o.fillCircle(fx, GY - 40 + lift, 30 + 20 * this.harmonyGlow);
     }
     // 見上げた時: まぶたと、にじみ
     if (this.lookY > 0.05 && this.cleanFrames <= 0) this.drawLookOverlay(o, seg);
@@ -399,34 +413,51 @@ export class WalkScene extends Phaser.Scene {
     const cx = this.camX;
     const indoor = seg.kind === 'cafe' || seg.kind === 'cutscene' || seg.kind === 'end';
     if (!hasImg && !indoor) {
-      // 遠景: 塀・建物の下端(パララックス 0.5)
-      const par = 0.5, unit = 180;
+      // 遠景: 線数本で場所が分かる程度(パララックス 0.5)
+      const INK = 0x2a2522;
+      const par = 0.5, unit = 200;
       const start = Math.floor((cx * par) / unit) - 1;
       for (let i = start; i < start + W / unit + 3; i++) {
         const x = i * unit - cx * par;
-        const h = 150 + ((i * 7919 + this.propsSeed) % 5) * 22;
-        const col = (i + this.propsSeed) % 2 ? pal.wall : pal.wall2;
-        g.fillStyle(col, 1); g.fillRect(x, GY - h + lift, unit + 1, h);
-        g.lineStyle(2, pal.line, 0.25); g.strokeRect(x + 3, GY - h + 3 + lift, unit - 6, h);
-        // ブロック塀の目地
-        g.lineStyle(1, pal.line, 0.12);
-        for (let yy = GY - h + 26; yy < GY; yy += 26) g.lineBetween(x, yy + lift, x + unit, yy + lift);
-        // 物: 電柱 / 植木鉢 / シャッター / 椅子の脚
-        const kind = (i * 31 + this.propsSeed) % 6;
-        if (seg.bg.startsWith('street') && kind === 0) { g.fillStyle(0x6c6a66, 1); g.fillRect(x + 60, GY - 420 + lift, 26, 420); }
-        if (seg.bg.startsWith('street') && kind === 2) { g.fillStyle(0xa85c3c, 1); g.fillRect(x + 100, GY - 36 + lift, 36, 34); g.fillStyle(0x5f8a52, 1); g.fillCircle(x + 118, GY - 48 + lift, 22); }
-        if (seg.bg === 'shotengai') { g.fillStyle(0x8a8e94, 1); g.fillRect(x + 10, GY - h + 20 + lift, unit - 20, h * 0.55); g.lineStyle(1, pal.line, 0.2); for (let yy = 0; yy < h * 0.55; yy += 8) g.lineBetween(x + 10, GY - h + 20 + yy + lift, x + unit - 10, GY - h + 20 + yy + lift); }
-        if (seg.bg === 'grass') { g.fillStyle(0x6f8f5a, 1); g.fillRect(x, GY - 40 + lift, unit + 1, 40); }
+        const r = ((i * 7919 + this.propsSeed) >>> 0) % 97;
+        const kind = r % 6;
+        const by = GY + lift;
+        if (seg.bg.startsWith('street') || seg.bg === 'genkan') {
+          // ブロック塀(低い)と、ときどき電柱・植木鉢・木
+          const h = 120 + (r % 3) * 10;
+          g.fillStyle(pal.wall, 1); g.fillRect(x, by - h, unit + 1, h);
+          g.lineStyle(3, INK, 1); g.strokePoints(<any>this.wob([{ x, y: by - h }, { x: x + unit, y: by - h + 2 }], i * 7, 1.2), false);
+          g.lineStyle(1.5, INK, 0.5);
+          for (let yy = by - h + 30; yy < by; yy += 30) g.lineBetween(x, yy, x + unit, yy);
+          let row = 0;
+          for (let yy = by - h; yy < by - 4; yy += 30, row++) for (let k = 0; k < 4; k++) { const xx = x + k * 50 + (row % 2) * 25; g.lineBetween(xx, yy, xx, Math.min(by, yy + 30)); }
+          if (kind === 0) { g.fillStyle(0xd8d2c8, 1); g.fillRect(x + 90, by - 470, 22, 470); g.lineStyle(3, INK, 1); g.strokeRect(x + 90, by - 470, 22, 470); }
+          if (kind === 2) { g.fillStyle(0xd88a5a, 1); g.fillRect(x + 120, by - 34, 34, 32); g.lineStyle(2.5, INK, 1); g.strokeRect(x + 120, by - 34, 34, 32); g.fillStyle(0x8cc070, 1); g.fillCircle(x + 137, by - 48, 18); g.strokeCircle(x + 137, by - 48, 18); }
+          if (kind === 4) { g.fillStyle(0x8cc070, 1); g.fillCircle(x + 60, by - h - 70, 60); g.lineStyle(3, INK, 1); g.strokeCircle(x + 60, by - h - 70, 60); g.fillStyle(0xb08860, 1); g.fillRect(x + 54, by - h - 20, 12, 20); }
+        } else if (seg.bg === 'shotengai') {
+          const h = 300;
+          g.fillStyle(pal.wall, 1); g.fillRect(x, by - h, unit - 6, h);
+          g.lineStyle(3, INK, 1); g.strokeRect(x, by - h, unit - 6, h);
+          g.fillStyle(0xcfd3d8, 1); g.fillRect(x + 12, by - h + 40, unit - 30, h * 0.45);
+          g.lineStyle(1.5, INK, 0.6); for (let yy = 0; yy < h * 0.45; yy += 10) g.lineBetween(x + 12, by - h + 40 + yy, x + unit - 18, by - h + 40 + yy);
+          g.fillStyle([0xe86a5a, 0x5ab0d8, 0xf0c040][r % 3], 1); g.fillPoints(<any>[{ x: x - 4, y: by - h + 20 }, { x: x + unit - 2, y: by - h + 20 }, { x: x + unit - 14, y: by - h + 44 }, { x: x + 8, y: by - h + 44 }], true);
+          g.lineStyle(2.5, INK, 1); g.strokePoints(<any>[{ x: x - 4, y: by - h + 20 }, { x: x + unit - 2, y: by - h + 20 }, { x: x + unit - 14, y: by - h + 44 }, { x: x + 8, y: by - h + 44 }], true);
+        } else if (seg.bg === 'grass') {
+          g.lineStyle(2, INK, 0.8);
+          for (let k = 0; k < 6; k++) { const gx = x + k * 33 + (r % 11); g.lineBetween(gx, by, gx - 4, by - 14); g.lineBetween(gx + 3, by, gx + 6, by - 12); }
+        }
       }
-      if (seg.bg === 'crosswalk' || seg.bg === 'stairs' || seg.bg === 'grass') {
-        g.fillStyle(pal.sky[1], 1); g.fillRect(0, GY - 60 + lift, W, 60);
+      if (seg.bg === 'crosswalk' || seg.bg === 'grass') {
+        // 遠くの地平線と、ガードレール
+        g.lineStyle(2.5, 0x2a2522, 0.9); g.lineBetween(0, GY - 70 + lift, W, GY - 72 + lift);
+        if (seg.bg === 'crosswalk') { g.lineStyle(3, 0x2a2522, 1); g.lineBetween(0, GY - 120 + lift, W, GY - 120 + lift); for (let k = 0; k < 8; k++) { const px = ((k * 160 - cx * 0.5) % (W + 160) + W + 160) % (W + 160) - 80; g.lineBetween(px, GY - 120 + lift, px, GY - 70 + lift); } }
       }
     }
     // 地面(手前、等速)
     if (indoor) return;
     const groundCol = seg.kind === 'barefoot' ? 0x7c9a5e : pal.ground;
     gr.fillStyle(groundCol, hasImg ? 0.0 : 1); gr.fillRect(0, GY + lift, W, H - GY + 400);
-    gr.lineStyle(3, pal.line, 0.55); gr.lineBetween(0, GY + lift + 1, W, GY + lift + 1);
+    gr.lineStyle(3, 0x2a2522, hasImg ? 0 : 1); gr.strokePoints(<any>this.wob([{ x: -10, y: GY + lift + 1 }, { x: W / 2, y: GY + lift }, { x: W + 10, y: GY + lift + 2 }], 900, 1.2), false);
     // 地面の模様: 割れ目・白線・落ち葉・水たまり
     const unit = 120, start = Math.floor(cx / unit) - 1;
     for (let i = start; i < start + W / unit + 3; i++) {
@@ -485,7 +516,23 @@ export class WalkScene extends Phaser.Scene {
       const far = f === 'L';
       const hint = !isMe && this.holdOn && f === 'R';
       const hy = hint ? Math.max(0, Math.sin(this.now / 380)) * 7 : 0;
-      this.drawLeg(g, x, y - hy, hipX + (far ? -8 : 8), -160 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : hint ? 0.5 : 0.15) : 0, pal, this.footLift(a) / 14);
+      this.drawLeg(g, x, y - hy, hipX + (far ? -9 : 9), 120 + lift, facing, isMe, far, bare, f === 'R' ? (isMe ? this.w.heelRed : hint ? 0.5 : 0.15) : 0, pal, this.footLift(a) / 14);
+    }
+  }
+
+  /** 言葉の代わりの案内: 次の足のつま先が光る / ズキッの後は右の直後に左が光る */
+  private drawToeHints(g: Phaser.GameObjects.Graphics, off: number, lift: number, pal: (typeof PAL)['morning']) {
+    const next: Foot = this.lastStepFoot === 'L' ? 'R' : 'L';
+    const idle = this.now - this.lastStepAt;
+    const toe = (f: Foot) => this.footPos(this.me[f]) + off + tune('walk.stride') * 0.32;
+    if (this.w.segIndex <= 1 && this.w.steps < 10 && idle > 700) {
+      const p = (Math.sin(this.now / 260) + 1) / 2;
+      g.lineStyle(3, pal.light, 0.35 + p * 0.45); g.strokeCircle(toe(next), GY - 10 + lift, 20 + p * 6);
+      g.fillStyle(pal.light, 0.15 + p * 0.2); g.fillCircle(toe(next), GY - 10 + lift, 18);
+    }
+    if (this.hintSteps > 0 && this.lastStepFoot === 'R' && idle < 380) {
+      const k = 1 - idle / 380;
+      g.lineStyle(3, 0xfff1c0, 0.8 * k); g.strokeCircle(toe('L'), GY - 10 + lift, 16 + (1 - k) * 18);
     }
   }
 
@@ -500,60 +547,76 @@ export class WalkScene extends Phaser.Scene {
   }
 
   private drawLeg(g: Phaser.GameObjects.Graphics, x: number, y: number, hipX: number, hipY: number, facing: number, isMe: boolean, far: boolean, bare: boolean, red: number, pal: (typeof PAL)['morning'], bend = 0) {
-    const shade = (c: number) => far ? Phaser.Display.Color.IntegerToColor(c).darken(16).color : c;
+    // 小学生の足。太めの手描きの黒い線、平塗り(新聞の4コマ漫画のような素朴さ)
+    const INK = 0x2a2522;
+    const shade = (c: number) => far ? Phaser.Display.Color.IntegerToColor(c).darken(10).color : c;
     const seed = (isMe ? 100 : 300) + (far ? 50 : 0);
-    const ankleX = x - facing * 10, ankleY = y - (bare ? 14 : 22);
-    // ひざ: 腰と足首の間、前へ少し曲がる
-    const kneeY = ankleY - 175;
-    const kneeX = ankleX + (hipX - ankleX) * 0.45 + facing * (8 + bend * 26);
-    const pants = shade(isMe ? 0x2c3a5e : 0xd8c8a8);
-    const skin = shade(0xe8b896);
-    const sock = shade(bare ? 0xe8b896 : isMe ? 0xf2f0ea : 0xe9e2d2);
-    const hemY = ankleY - (bare ? 66 : 40);
-    const along = (yy: number) => kneeX + (ankleX - kneeX) * ((yy - kneeY) / (ankleY - kneeY));
-    // 靴下 / 素足のすね
-    g.fillStyle(bare ? skin : sock, 1);
-    g.fillPoints(<any>this.wob([{ x: along(hemY) - 10, y: hemY }, { x: along(hemY) + 10, y: hemY }, { x: ankleX + 9, y: ankleY + 6 }, { x: ankleX - 10, y: ankleY + 6 }], seed), true);
-    // ズボン: もも → ひざ → すそ(少し広がる)
-    const P = this.wob([
-      { x: hipX - 26, y: hipY }, { x: hipX + 26, y: hipY },
-      { x: kneeX + 20, y: kneeY }, { x: along(hemY) + 18, y: hemY },
-      { x: along(hemY) - 18, y: hemY }, { x: kneeX - 20, y: kneeY },
-    ], seed + 20);
-    g.fillStyle(pants, 1); g.fillPoints(<any>P, true);
-    // ひだの影
-    g.fillStyle(0x000000, 0.08); g.fillPoints(<any>[P[2], { x: kneeX + 6, y: kneeY + 30 }, { x: P[3].x - 4, y: hemY }, P[3]], true);
-    g.lineStyle(2, pal.line, 0.75); g.strokePoints(<any>P, true);
-    if (bare) { g.lineStyle(1.5, pal.line, 0.5); for (let k = 0; k < 2; k++) g.lineBetween(P[4].x, hemY + 5 + k * 5, P[3].x, hemY + 5 + k * 5); }
+    const lw = 3;
+    const ankleX = x - facing * 10, ankleY = y - (bare ? 12 : 24);
+    const hemY = ankleY - 196; // 半ズボン / キュロットのすそ
+    const kneeY = ankleY - 104;
+    const kneeX = ankleX + (hipX - ankleX) * 0.42 + facing * (6 + bend * 22);
+    const hemX = ankleX + (hipX - ankleX) * 0.82 + facing * bend * 8;
+    const skin = shade(0xf7d6b6);
+    // 脚(もも〜すね)
+    const Lg = this.wob([
+      { x: hemX - 19, y: hemY }, { x: hemX + 19, y: hemY },
+      { x: kneeX + 16, y: kneeY - 6 }, { x: kneeX + 15 + facing * 2, y: kneeY + 8 },
+      { x: ankleX + 10, y: ankleY + 4 }, { x: ankleX - 10, y: ankleY + 4 },
+      { x: kneeX - 14, y: kneeY + 8 }, { x: kneeX - 16, y: kneeY - 6 },
+    ], seed, 1.0);
+    g.fillStyle(skin, 1); g.fillPoints(<any>Lg, true);
+    g.lineStyle(lw, INK, 1); g.strokePoints(<any>Lg, true);
+    // ひざこぞう
+    g.lineStyle(2, INK, 0.7); g.beginPath(); g.arc(kneeX + facing * 4, kneeY + 2, 6, facing > 0 ? -1.2 : 1.9, facing > 0 ? 1.2 : 4.3); g.strokePath();
+    // 靴下
+    if (!bare) {
+      const sockTop = ankleY - 34;
+      const along = (yy: number) => kneeX + (ankleX - kneeX) * ((yy - kneeY) / (ankleY - kneeY));
+      const Sk = this.wob([{ x: along(sockTop) - 9, y: sockTop }, { x: along(sockTop) + 9, y: sockTop }, { x: ankleX + 9, y: ankleY + 6 }, { x: ankleX - 9, y: ankleY + 6 }], seed + 10, 0.8);
+      g.fillStyle(0xffffff, 1); g.fillPoints(<any>Sk, true);
+      g.lineStyle(2.5, INK, 1); g.strokePoints(<any>Sk, true);
+      g.lineStyle(3, isMe ? 0x5b8fd0 : 0xe06a5a, 1); g.lineBetween(along(sockTop + 7) - 8, sockTop + 7, along(sockTop + 7) + 8, sockTop + 7);
+    }
+    // 半ズボン(自分=紺)/ キュロット(友だち=赤)。すそだけ見える
+    const cloth = shade(isMe ? 0x34508c : 0xd8493e);
+    const Sh = this.wob([{ x: hipX - 32, y: hipY - 160 }, { x: hipX + 32, y: hipY - 160 }, { x: hemX + 27 + (isMe ? 0 : 7), y: hemY + 4 }, { x: hemX - 27 - (isMe ? 0 : 7), y: hemY + 4 }], seed + 20, 1.2);
+    g.fillStyle(cloth, 1); g.fillPoints(<any>Sh, true);
+    g.lineStyle(lw, INK, 1); g.strokePoints(<any>Sh, true);
     // 靴(または素足)
-    const L = bare ? 58 : 68, Hh = bare ? 15 : 27;
-    const heel = x - facing * L * 0.4, toe = x + facing * L * 0.6;
     if (bare) {
+      const L = 50, heel = x - facing * L * 0.4, toe = x + facing * L * 0.6;
       const F = this.wob([
-        { x: heel, y: y - 2 }, { x: heel - facing * 3, y: y - 9 }, { x: heel + facing * 6, y: y - Hh }, { x: ankleX + facing * 12, y: y - Hh - 2 },
-        { x: toe - facing * 16, y: y - 9 }, { x: toe - facing * 2, y: y - 7 }, { x: toe, y: y - 2 }, { x: toe - facing * 4, y: y },
+        { x: heel, y: y - 1 }, { x: heel - facing * 3, y: y - 8 }, { x: heel + facing * 5, y: y - 15 }, { x: ankleX + facing * 10, y: y - 17 },
+        { x: toe - facing * 14, y: y - 9 }, { x: toe - facing * 1, y: y - 8 }, { x: toe + facing * 1, y: y - 2 }, { x: toe - facing * 4, y: y },
       ], seed + 40);
       g.fillStyle(skin, 1); g.fillPoints(<any>F, true);
-      g.lineStyle(2, pal.line, 0.65); g.strokePoints(<any>F, true);
-      if (isMe && !far) { g.fillStyle(0xffffff, 0.95); g.fillRect(heel - facing * 1 - 5, y - 15, 11, 9); g.lineStyle(1, pal.line, 0.4); g.strokeRect(heel - facing * 1 - 5, y - 15, 11, 9); }
-      if (!isMe && !far) { g.fillStyle(0xd0484c, 0.55); g.fillCircle(heel + facing * 3, y - 8, 6); }
+      g.lineStyle(2.5, INK, 1); g.strokePoints(<any>F, true);
+      g.lineStyle(1.5, INK, 0.7); for (let k = 0; k < 3; k++) g.lineBetween(toe - facing * (3 + k * 5), y - 8, toe - facing * (3 + k * 5), y - 5);
+      if (isMe && !far) { g.fillStyle(0xffffff, 1); g.fillRect(heel - 5, y - 14, 11, 9); g.lineStyle(1.5, INK, 0.8); g.strokeRect(heel - 5, y - 14, 11, 9); }
+      if (!isMe && !far) { g.fillStyle(0xe0605a, 0.6); g.fillCircle(heel + facing * 3, y - 7, 5); }
       return;
     }
-    const body = shade(isMe ? 0xd6a43a : 0xf7f6f0);
-    const S = this.wob([
-      { x: heel, y: y - 1 }, { x: heel - facing * 2, y: y - Hh * 0.5 }, { x: heel + facing * 2, y: y - Hh + 1 },
-      { x: heel + facing * 20, y: y - Hh - 1 }, { x: x + facing * 4, y: y - Hh + 6 }, { x: toe - facing * 14, y: y - 15 },
-      { x: toe - facing * 3, y: y - 11 }, { x: toe + facing * 1, y: y - 5 }, { x: toe - facing * 2, y: y },
+    // 子どもの運動靴: ころんと丸く、白い厚底、マジックテープ
+    const L = 66, Hh = 28;
+    const heel = x - facing * L * 0.42, toe = x + facing * L * 0.58;
+    const upper = shade(isMe ? 0xf5c63c : 0xfafafa);
+    const U = this.wob([
+      { x: heel + facing * 1, y: y - 8 }, { x: heel - facing * 2, y: y - Hh * 0.6 }, { x: heel + facing * 6, y: y - Hh },
+      { x: heel + facing * 22, y: y - Hh - 1 }, { x: x + facing * 6, y: y - Hh + 5 }, { x: toe - facing * 14, y: y - 19 },
+      { x: toe - facing * 2, y: y - 15 }, { x: toe + facing * 3, y: y - 8 },
     ], seed + 60);
-    g.fillStyle(body, 1); g.fillPoints(<any>S, true);
-    // 光と影
-    g.fillStyle(0xffffff, isMe ? 0.25 : 0.4); g.fillEllipse(x + facing * 4, y - Hh + 10, L * 0.4, 5);
-    g.fillStyle(shade(isMe ? 0x6b4a22 : 0xc9c4b8), 1); g.fillRect(Math.min(heel, toe) + 1, y - 4, L - 2, 5);
-    g.lineStyle(2, pal.line, 0.8); g.strokePoints(<any>S, true);
-    // 靴ひも/ステッチ
-    g.lineStyle(1, pal.line, 0.45);
-    for (let k = 0; k < 3; k++) { const sx = x + facing * (6 + k * 7); g.lineBetween(sx, y - Hh + 6 + k * 3, sx + facing * 5, y - Hh + 4 + k * 3); }
-    if (red > 0.02) { g.fillStyle(0xc43034, Math.min(0.85, red)); g.fillCircle(heel + facing * 5, y - Hh + 5, 3 + red * 5); }
+    g.fillStyle(upper, 1); g.fillPoints(<any>U, true);
+    g.lineStyle(lw, INK, 1); g.strokePoints(<any>U, true);
+    // 底(白・厚め)
+    const So = this.wob([{ x: heel - facing * 3, y: y - 9 }, { x: toe + facing * 4, y: y - 9 }, { x: toe + facing * 1, y: y }, { x: heel, y: y }], seed + 70, 0.8);
+    g.fillStyle(0xffffff, 1); g.fillPoints(<any>So, true);
+    g.lineStyle(2.5, INK, 1); g.strokePoints(<any>So, true);
+    // マジックテープ / 友だちは青い線
+    g.lineStyle(2.5, INK, 1);
+    if (isMe) { const bx = x - facing * 2; g.strokeRect(Math.min(bx, bx + facing * 16), y - Hh + 3, 16, 9); g.fillStyle(0xffffff, 1); g.fillRect(Math.min(bx, bx + facing * 16) + 1, y - Hh + 4, 14, 7); }
+    else { g.lineStyle(3, 0x4a78c8, 1); g.lineBetween(heel + facing * 10, y - 13, x + facing * 14, y - 22); }
+    if (red > 0.02) { g.fillStyle(0xd8403a, Math.min(0.9, red)); g.fillCircle(heel + facing * 6, y - Hh + 6, 3 + red * 4); }
   }
 
   private drawCafe(g: Phaser.GameObjects.Graphics, pal: (typeof PAL)['morning'], lift: number) {
@@ -581,12 +644,12 @@ export class WalkScene extends Phaser.Scene {
     const frRig: Rig = { L: { from: frX + 30, to: frX + 30, t0: -1e9, lift: 0 }, R: { from: frX - 26, to: frX - 26, t0: -1e9, lift: 0 }, facing: -1, kind: 'friend' };
     // 友だちのかかとも、ときどき浮く
     const frHeel = Math.max(0, Math.sin(tt / 900)) * 8;
-    this.drawLeg(g, frRig.L.from, GY + lift, frX + 40, -160, -1, false, true, false, 0, pal);
-    this.drawLeg(g, frRig.R.from, GY + lift - frHeel, frX + 50, -160, -1, false, false, false, 0.3, pal);
-    this.drawLeg(g, meRig.L.from, GY + lift, myX - 40, -160, 1, true, true, false, 0, pal);
+    this.drawLeg(g, frRig.L.from, GY + lift, frX + 40, 130, -1, false, true, false, 0, pal);
+    this.drawLeg(g, frRig.R.from, GY + lift - frHeel, frX + 50, 130, -1, false, false, false, 0.3, pal);
+    this.drawLeg(g, meRig.L.from, GY + lift, myX - 40, 130, 1, true, true, false, 0, pal);
     // 右: かかとを抜くと、靴が少し後ろに残り、靴下の赤が見える
     const h = this.cafeHeel;
-    this.drawLeg(g, meRig.R.from + h * 10, GY + lift - h * 10, myX - 30, -160, 1, true, false, false, this.w.heelRed, pal);
+    this.drawLeg(g, meRig.R.from + h * 10, GY + lift - h * 10, myX - 30, 130, 1, true, false, false, this.w.heelRed, pal);
     if (h > 0.05) {
       g.fillStyle(0xd6a43a, 1); g.fillRect(meRig.R.from - 34, GY - 20, 22, 18);
       g.fillStyle(0xc43034, 0.6 * h); g.fillCircle(meRig.R.from - 16 + h * 10, GY - 18 - h * 10, 7);

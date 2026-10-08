@@ -35,12 +35,12 @@ export function preloadArt(scene: Phaser.Scene) {
 }
 
 export const PAL: Record<Tod, { sky: [number, number]; wall: number; wall2: number; ground: number; line: number; light: number; paper: number }> = {
-  morning: { sky: [0xbfe0f2, 0xf6efe0], wall: 0xd9d2c3, wall2: 0xc6bba5, ground: 0x9ea3a6, line: 0x2f3a56, light: 0xfff6dc, paper: 0xf4ecdc },
-  noon: { sky: [0xcfe6f0, 0xf8f3e6], wall: 0xe3d9c4, wall2: 0xb9ad96, ground: 0xb0aea8, line: 0x2f3a56, light: 0xffffff, paper: 0xf6f0e2 },
-  cafe: { sky: [0xe8d2b0, 0xf2e2c4], wall: 0x8a6a4c, wall2: 0x6e5038, ground: 0xb08458, line: 0x3a2a1e, light: 0xffe2a8, paper: 0xf1e3c8 },
-  evening: { sky: [0xf2b27a, 0xf7dcb4], wall: 0xc9a68a, wall2: 0xa98670, ground: 0x8f8584, line: 0x3b2c3e, light: 0xffc98a, paper: 0xf3e0c6 },
-  dusk: { sky: [0x7d8fc4, 0xf4b68c], wall: 0x8c8aa6, wall2: 0x6e7094, ground: 0x7c8a6a, line: 0x2a2840, light: 0xffd0a0, paper: 0xe9dccb },
-  night: { sky: [0x1d2440, 0x3a3f66], wall: 0x3a3e5c, wall2: 0x2c2f48, ground: 0x4a4a5a, line: 0x0f1224, light: 0xffd79a, paper: 0x2a2a3a },
+  morning: { sky: [0xd6ecf7, 0xf7f3e8], wall: 0xece6da, wall2: 0xe2dccd, ground: 0xdcdad4, line: 0x2a2522, light: 0xfff6dc, paper: 0xfaf6ec },
+  noon: { sky: [0xdff0f7, 0xfbf8ef], wall: 0xf0e9dc, wall2: 0xe6dfcf, ground: 0xe2dfd8, line: 0x2a2522, light: 0xffffff, paper: 0xfbf8ef },
+  cafe: { sky: [0xf3e6cf, 0xf7eedc], wall: 0xe8d6b8, wall2: 0xdcc8a6, ground: 0xe6cfa6, line: 0x2a2522, light: 0xffe9b8, paper: 0xf7eedc },
+  evening: { sky: [0xf6c99a, 0xf9e6cc], wall: 0xf0dcc6, wall2: 0xe6cdb4, ground: 0xd9cbc0, line: 0x2a2522, light: 0xffd9a8, paper: 0xf8ead6 },
+  dusk: { sky: [0xb6c0e2, 0xf6cfae], wall: 0xd8d4e4, wall2: 0xccc8dc, ground: 0xb8d0a0, line: 0x2a2522, light: 0xffdcb8, paper: 0xf2e8dc },
+  night: { sky: [0x3a4170, 0x59609a], wall: 0x50567e, wall2: 0x464c72, ground: 0x5a5a6e, line: 0x111111, light: 0xffe0a8, paper: 0x3a3a4a },
 };
 
 /** 紙のざらつき(全画面に薄く重ねる) */
