@@ -17,6 +17,10 @@ export class Boot extends Phaser.Scene {
     expose('scene', 'Boot');
     trimParts(this);
     installHub(this.game.canvas);
-    this.scene.start('Walk');
+    // 手書き風の文字が読み込まれてから始める(遅い回線でも 1.5 秒で見切る)
+    const go = () => this.scene.start('Walk');
+    const fonts = (document as any).fonts;
+    if (fonts?.load) Promise.race([fonts.load('600 56px "Klee One"'), new Promise((r) => setTimeout(r, 1500))]).finally(go);
+    else go();
   }
 }

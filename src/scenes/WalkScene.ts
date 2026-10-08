@@ -95,7 +95,7 @@ export class WalkScene extends Phaser.Scene {
     this.paper = this.add.tileSprite(W / 2, H / 2, W, H, 'paper').setScrollFactor(0).setDepth(60).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0.3);
 
     // タイトル(玄関で最初の一歩まで)
-    this.titleText = this.add.text(W * 0.74, H * 0.22, t('title'), { fontFamily: '"Zen Maru Gothic", "Hiragino Maru Gothic ProN", sans-serif', fontSize: '56px', color: '#2a2522' })
+    this.titleText = this.add.text(W * 0.74, H * 0.22, t('title'), { fontFamily: '"Klee One", "Hiragino Maru Gothic ProN", sans-serif', fontSize: '56px', color: '#2a2522' })
       .setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0).setAngle(-3);
     if (this.w.segIndex === 0) this.tweens.add({ targets: this.titleText, alpha: 0.85, duration: 1800, delay: 300 });
     const keyHint = !this.sys.game.device.input.touch;
@@ -812,8 +812,8 @@ export class WalkScene extends Phaser.Scene {
   }
 
   private endSequence() {
-    const by = this.add.text(W / 2, H * 0.36, t('title'), { fontFamily: '"Zen Maru Gothic", sans-serif', fontSize: '44px', color: '#f3e7cf' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    const sub = this.add.text(W / 2, H * 0.36 + 52, t('credit'), { fontFamily: 'sans-serif', fontSize: '13px', color: '#f3e7cf', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    const by = this.add.text(W / 2, H * 0.36, t('title'), { fontFamily: '"Klee One", sans-serif', fontSize: '44px', color: '#f3e7cf' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    const sub = this.add.text(W / 2, H * 0.36 + 52, t('credit'), { fontFamily: '"Klee One", sans-serif', fontSize: '13px', color: '#f3e7cf', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
     this.tweens.add({ targets: [by, sub], alpha: 0.9, duration: 2000, delay: 800, hold: 1800, yoyo: true });
     // 一日の写真を見返す(思ったより晴れている)
     const n = this.photos.length;
@@ -837,7 +837,7 @@ export class WalkScene extends Phaser.Scene {
     this.time.delayedCall(tMorning + 700, () => { snd.footstep('wood', 'R', 0.8); snd.squeak(0.25); snd.note('piano', 79, 0.35, { dur: 2.5 }); });
     this.morningAt = tMorning;
     this.time.delayedCall(tMorning + 2200, () => {
-      const again = this.add.text(W / 2, H * 0.6, t('again'), { fontFamily: 'sans-serif', fontSize: '18px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+      const again = this.add.text(W / 2, H * 0.6, t('again'), { fontFamily: '"Klee One", sans-serif', fontSize: '18px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
       this.tweens.add({ targets: again, alpha: 0.8, duration: 1500 });
       setFootHandler(() => { setFootHandler(() => {}); this.scene.restart(); });
       if (DemoDriver.enabled) this.time.delayedCall(2500, () => this.scene.restart());

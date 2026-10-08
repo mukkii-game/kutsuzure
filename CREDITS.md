@@ -23,3 +23,4 @@
 | High traffic road sounds `amb/city_traffic` | 環境音 | https://opengameart.org/content/high-traffic-road-sounds | CC0 1.0 | IgnasD(任意) | 街 | |
 | Crickets Ambient Noise - loopable `amb/night_crickets` | 環境音 | https://opengameart.org/content/crickets-ambient-noise-loopable | CC0 1.0 | Ted Kerr (Wolfgang_)(任意) | 夜 | |
 | Ambient Bird Sounds `amb/birds_light` | 環境音 | https://opengameart.org/content/ambient-bird-sounds | CC0 1.0 | isaiah658(任意) | 鳥 | |
+| Klee One | フォント | https://fonts.google.com/specimen/Klee+One | SIL OFL 1.1 | Klee One © Fontworks | タイトル・エンディングの文字 | |
