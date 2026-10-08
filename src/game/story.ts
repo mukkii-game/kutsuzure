@@ -22,7 +22,7 @@ export interface Segment {
 export const STORY: Segment[] = [
   { id: 'genkan', kind: 'walk', verse: 1, bg: 'genkan', tod: 'morning', steps: 6, blister: [0, 0], friend: 'none', amb: 'morning_birds', beats: [{ at: 0, id: 'door' }] },
   { id: 'street', kind: 'walk', verse: 1, bg: 'street_m', tod: 'morning', steps: 26, blister: [0.4, 0.6], friend: 'lead', friendStart: 4, amb: 'morning_birds', beats: [{ at: 10, id: 'puddle' }, { at: 20, id: 'bike' }] },
-  { id: 'shotengai', kind: 'walk', verse: 1, bg: 'shotengai', tod: 'noon', steps: 30, blister: [0.5, 0.8], friend: 'keep', amb: 'city_traffic', beats: [{ at: 2, id: 'shutter' }, { at: 18, id: 'bell' }] },
+  { id: 'shotengai', kind: 'walk', verse: 1, bg: 'shotengai', tod: 'noon', steps: 20, blister: [0.5, 0.8], friend: 'keep', amb: 'city_traffic', beats: [{ at: 2, id: 'shutter' }, { at: 10, id: 'bell' }] },
   { id: 'crosswalk', kind: 'walk', verse: 1, bg: 'crosswalk', tod: 'noon', steps: 22, blister: [0.8, 0.9], friend: 'keep', amb: 'city_traffic', beats: [{ at: 6, id: 'signal', hold: 5200 }] },
   { id: 'cafe', kind: 'cafe', verse: 1, bg: 'cafe', tod: 'cafe', ms: 14000, blister: [0.9, 0.9], friend: 'sit', amb: 'birds_light' },
   { id: 'evening', kind: 'walk', verse: 2, bg: 'street_e', tod: 'evening', steps: 40, blister: [1, 1], friend: 'lead', friendStart: 2, waitSync: true, amb: 'evening_outdoor', beats: [{ at: 4, id: 'crows' }] },

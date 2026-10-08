@@ -41,7 +41,7 @@ export class Walk {
   rub = 0; // 0..1 擦れ
   pain = 0; // 0..1 見た目用(ズキッで 1、減衰)
   heelRed = 0; // 0..1 かかとの赤(累積)
-  heelOut = false;
+  heelOut = false; private heelOutAt = 0;
   shuffle = false;
   private shufCount = 0;
   private lr = 0; // L 着地 → R 着地
@@ -130,11 +130,11 @@ export class Walk {
     const s = this.seg;
     if (this.lookingUp) { this.lookingUp = false; this.events.push({ type: 'look', up: false }); }
     if (s.kind === 'cafe') {
-      if (foot === 'R' && !this.heelOut && this.segT > 1200) { this.heelOut = true; this.rub = 0; this.pain = 0; this.events.push({ type: 'heelOut' }); }
+      if (foot === 'R' && !this.heelOut && this.segT > 1200) { this.heelOut = true; this.heelOutAt = this.segT; this.rub = 0; this.pain = 0; this.events.push({ type: 'heelOut' }); }
       return;
     }
     if (s.kind === 'cutscene') {
-      if (foot === 'R' && !this.shoesOff && this.segT > 4200) this.takeShoesOff();
+      if (foot === 'R' && !this.shoesOff && this.segT > 7500) this.takeShoesOff();
       return;
     }
     if (s.kind === 'end') return;
@@ -297,10 +297,10 @@ export class Walk {
 
     // 歩かない場面
     if (s.kind === 'cafe') {
-      if ((this.heelOut && this.segT > 4500) || this.segT > (s.ms ?? 12000)) this.next();
+      if ((this.heelOut && this.segT - this.heelOutAt > 5200) || this.segT > (s.ms ?? 12000) + 6000) this.next();
     } else if (s.kind === 'cutscene') {
       if (!this.shoesOff && this.segT > 14000) this.takeShoesOff();
-      if (this.shoesOff && t - this.shoesOffT > 4200) this.next();
+      if (this.shoesOff && t - this.shoesOffT > 6000) this.next();
     } else if (s.kind === 'end') {
       if (this.segT > (s.ms ?? 5000)) this.next();
     }

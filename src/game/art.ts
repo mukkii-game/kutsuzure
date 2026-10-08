@@ -14,7 +14,6 @@ export const ART_FILES: Record<string, string> = {
   bg_stairs: 'bg07_riverbank_stairs.png',
   bg_grass: 'bg07_riverbank_stairs.png',
   bg_sky: 'bg09_sky.png',
-  bg_genkan_n: 'bg06_street_evening.png', // 夜は夕方の道を暗く染めて使う(専用の絵が届くまで)
   me_leg: 'me_leg.png', me_leg_bare: 'me_leg_bare.png', fr_leg: 'fr_leg.png', fr_leg_bare: 'fr_leg_bare.png',
   me_thigh: 'me_thigh.png', me_shin: 'me_shin.png', me_shoe: 'me_shoe.png', me_shoe_worn: 'me_shoe_worn.png', me_shin_bare: 'me_shin_bare.png', me_foot_bare: 'me_foot_bare.png',
   fr_thigh: 'fr_thigh.png', fr_shin: 'fr_shin.png', fr_shoe: 'fr_shoe.png', fr_shoe_worn: 'fr_shoe_worn.png', fr_shin_bare: 'fr_shin_bare.png', fr_foot_bare: 'fr_foot_bare.png',

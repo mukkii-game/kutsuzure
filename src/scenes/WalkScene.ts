@@ -47,7 +47,7 @@ export class WalkScene extends Phaser.Scene {
   private lastVoice: snd.Voice | null = null;
   private shuffleGlow = 0; private harmonyGlow = 0;
   private flash = 0;
-  private cafeHeel = 0;
+  private cafeHeel = 0; private cafeHeelFr = 0;
   private endPhase = 0;
   private demo!: DemoDriver;
   private glanceUntil = 0;
@@ -77,7 +77,7 @@ export class WalkScene extends Phaser.Scene {
     const r = replayFromUrl(); this.player = r ? new Player(r) : null;
     const mk = (kind: 'me' | 'friend', x: number): Rig => ({ L: { from: x - 23, to: x - 23, t0: -1e9, lift: 22 }, R: { from: x + 23, to: x + 23, t0: -1e9, lift: 22 }, facing: 1, kind });
     this.me = mk('me', 0); this.fr = mk('friend', -9999);
-    this.camX = 0; this.lookY = 0; this.lookTarget = 0; this.endPhase = 0; this.cafeHeel = 0;
+    this.camX = 0; this.lookY = 0; this.lookTarget = 0; this.endPhase = 0; this.cafeHeel = 0; this.cafeHeelFr = 0;
     this.photos = []; this.morningAt = 1e9; this.endShoes = []; this.offShoes = []; this.cameras.main.setOrigin(0.5, 0.5); this.zukiPhotoSeg = new Set(); this.cameras.main.setZoom(1); this.bike = -1; this.holdOn = false; this.bigPuddleX = -9999;
 
     makePaperTexture(this);
@@ -90,7 +90,7 @@ export class WalkScene extends Phaser.Scene {
     this.stains = this.add.container(0, 0);
     this.gLegs = this.add.graphics().setScrollFactor(0);
     this.gOver = this.add.graphics().setScrollFactor(0).setDepth(50);
-    this.gFx = this.add.graphics().setScrollFactor(0).setDepth(20);
+    this.gFx = this.add.graphics().setScrollFactor(0).setDepth(36);
     this.legSprites = new Map();
     this.paper = this.add.tileSprite(W / 2, H / 2, W, H, 'paper').setScrollFactor(0).setDepth(60).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0.3);
 
@@ -212,8 +212,8 @@ export class WalkScene extends Phaser.Scene {
         const fx = this.w.friend.x * tune('walk.stride');
         this.animFoot(this.fr, e.foot, fx);
         if (this.w.friend.mode !== 'sync') snd.footstep(seg.kind === 'barefoot' ? 'soft' : 'concrete', e.foot, 0.35);
-        if (seg.verse === 1 && this.w.segIndex >= 2 && e.foot === 'R') snd.squeak(0.12); // 友だちの靴も、小さく鳴っている
         else snd.footstep(seg.kind === 'barefoot' ? 'grass' : 'concrete', e.foot, 0.25);
+        if (seg.verse === 1 && this.w.segIndex >= 2 && e.foot === 'R') snd.squeak(0.12); // 友だちの靴も、小さく鳴っている
         break;
       }
       case 'friendGlance': this.glanceUntil = this.now + 700; break;
@@ -225,6 +225,8 @@ export class WalkScene extends Phaser.Scene {
       case 'segment': this.enterSegment(e.seg); break;
       case 'heelOut':
         this.tweens.add({ targets: this, cafeHeel: 1, duration: 500, ease: 'Sine.Out' });
+        // 少しして、友だちも黙ってかかとを抜く
+        this.tweens.add({ targets: this, cafeHeelFr: 1, duration: 600, delay: 1600, ease: 'Sine.Out' });
         snd.footstep('wood', 'R', 0.3);
         snd.note('piano', 72, 0.35, { dur: 1.5 }); snd.note('piano', 76, 0.3, { dur: 1.5, when: (snd.ac()?.currentTime ?? 0) + 0.25 });
         break;
@@ -601,9 +603,12 @@ export class WalkScene extends Phaser.Scene {
     foot.setOrigin(0.5, 1).setScale(fs).setPosition(x, y + 3).setRotation(0).setFlipX(flip).setVisible(true).setTint(tint);
     // 友だちも朝から痛かった: 1番の途中から、右のかかとをときどき靴の中で浮かせている(気づく人だけ気づく)
     const s0 = this.w.seg;
-    if (who === 'fr' && !far && !bare && s0.verse === 1 && this.w.segIndex >= 2) {
-      const pulse = Math.max(0, Math.sin(this.now / 650)) ** 3;
-      foot.setOrigin(flip ? 0.15 : 0.85, 1).setPosition(x + facing * footW * 0.35, y + 3).setRotation(facing * 0.16 * pulse);
+    let lift = 0;
+    if (who === 'fr' && !far && !bare && s0.verse === 1 && this.w.segIndex >= 2 && s0.kind === 'walk') lift = (Math.max(0, Math.sin(this.now / 650)) ** 3) * 0.66;
+    if (s0.kind === 'cafe' && !far) lift = who === 'me' ? this.cafeHeel : this.cafeHeelFr;
+    if (lift > 0.01) {
+      foot.setOrigin(flip ? 0.15 : 0.85, 1).setPosition(x + facing * footW * 0.35, y + 3).setRotation(facing * 0.24 * lift);
+      if (s0.kind === 'cafe') { this.gFx.fillStyle(0xd8403a, 0.7 * lift); this.gFx.fillCircle(x - facing * footW * 0.38, y - 34 - lift * 18, 7); }
     }
     const fh = foot.frame.realHeight * fs;
     const ankleX = x - facing * footW * (bare ? 0.24 : 0.22);
@@ -617,7 +622,7 @@ export class WalkScene extends Phaser.Scene {
       leg.setOrigin(flip ? 1 - bx : bx, 1);
       const len = (who === 'me' ? 470 : 460);
       const hx = hemX + (hemX - ankleX) * 0.25, hy = ankleY - len;
-      leg.setScale(len / leg.frame.realHeight).setPosition(ankleX, ankleY + 6).setRotation(-Math.atan2(ankleX - hx, ankleY - hy) + Math.PI).setFlipX(flip).setVisible(true).setTint(tint);
+      leg.setScale(len / leg.frame.realHeight).setPosition(ankleX, ankleY + (bare ? 0 : 6)).setRotation(-Math.atan2(ankleX - hx, ankleY - hy) + Math.PI).setFlipX(flip).setVisible(true).setTint(tint);
       leg.setRotation(Math.atan2(hx - ankleX, ankleY - hy));
     }
   }
@@ -649,7 +654,7 @@ export class WalkScene extends Phaser.Scene {
     const who = isMe ? 'me' : 'fr';
     if (this.textures.exists(`${who}_leg#t`)) {
       this.spriteLeg(who, far, bare, x, y, facing, hemX, hemY, kneeX, kneeY, ankleX, ankleY);
-      if (red > 0.02 && !bare) { const heelX = x - facing * 26; this.gFx.fillStyle(0xd8403a, Math.min(0.9, red)); this.gFx.fillCircle(heelX + facing * 6, y - 22, 3 + red * 4); }
+      if (red > 0.02 && !bare) { const heelX = x - facing * 55; this.gFx.fillStyle(0xd8403a, Math.min(0.75, red)); this.gFx.fillCircle(heelX, y - 34, 4 + red * 6); }
       return;
     }
     // 脚(もも〜すね)
@@ -741,20 +746,20 @@ export class WalkScene extends Phaser.Scene {
     const meRig: Rig = { L: { from: myX - 30, to: myX - 30, t0: -1e9, lift: 0 }, R: { from: myX + 26, to: myX + 26, t0: -1e9, lift: 0 }, facing: 1, kind: 'me' };
     const frRig: Rig = { L: { from: frX + 30, to: frX + 30, t0: -1e9, lift: 0 }, R: { from: frX - 26, to: frX - 26, t0: -1e9, lift: 0 }, facing: -1, kind: 'friend' };
     // 友だちのかかとも、ときどき浮く
-    const frHeel = Math.max(0, Math.sin(tt / 900)) * 8;
+    const frHeel = this.textures.exists('fr_leg#t') ? 0 : Math.max(0, Math.sin(tt / 900)) * 8;
     this.drawLeg(g, frRig.L.from, GY + lift, frX + 40, 130, -1, false, true, false, 0, pal);
     this.drawLeg(g, frRig.R.from, GY + lift - frHeel, frX + 50, 130, -1, false, false, false, 0.3, pal);
     this.drawLeg(g, meRig.L.from, GY + lift, myX - 40, 130, 1, true, true, false, 0, pal);
     // 右: かかとを抜くと、靴が少し後ろに残り、靴下の赤が見える
     const h = this.cafeHeel;
     this.drawLeg(g, meRig.R.from + h * 10, GY + lift - h * 10, myX - 30, 130, 1, true, false, false, this.w.heelRed, pal);
-    if (h > 0.05) {
+    if (h > 0.05 && !this.textures.exists('me_leg#t')) {
       g.fillStyle(0xd6a43a, 1); g.fillRect(meRig.R.from - 34, GY - 20, 22, 18);
       g.fillStyle(0xc43034, 0.6 * h); g.fillCircle(meRig.R.from - 16 + h * 10, GY - 18 - h * 10, 7);
-    } else if (tt > 1500) {
+    } else if (h <= 0.05 && tt > 1500) {
       // 右の靴が、触ってほしそうにかすかに光る
       const p = (Math.sin(tt / 300) + 1) / 2;
-      g.lineStyle(3, pal.light, 0.25 + p * 0.35); g.strokeCircle(meRig.R.from - 10, GY - 14, 28);
+      this.gFx.lineStyle(4, 0xffd27a, 0.35 + p * 0.45); this.gFx.strokeCircle(meRig.R.from - 6, GY - 22, 58 + p * 6);
     }
   }
 
@@ -770,16 +775,15 @@ export class WalkScene extends Phaser.Scene {
     // 友だちのかかとに寄る(カメラのズームの中心をかかとに置く)
     this.time.delayedCall(2900, () => { cam.setOrigin(560 / W, (GY - 30) / H); cam.zoomTo(2.0, 1100, 'Sine.easeInOut'); });
     this.time.delayedCall(4300, () => this.takePhoto(false));
-    this.time.delayedCall(5900, () => { cam.zoomTo(1, 1000, 'Sine.easeInOut'); });
-    this.time.delayedCall(7000, () => { cam.setOrigin(0.5, 0.5); });
-    this.time.delayedCall(6600, () => { snd.duck(false); });
+    this.time.delayedCall(7500, () => { cam.zoomTo(1, 1000, 'Sine.easeInOut'); });
+    this.time.delayedCall(8600, () => { cam.setOrigin(0.5, 0.5); });
+    this.time.delayedCall(8200, () => { snd.duck(false); });
   }
   private onShoesOff() {
     this.shoesOffAt = this.now;
     snd.play('cloth', 0.5, 1.15);
     // 笑って膝が揺れる(声は出さない)
-    const notes = [76, 79, 81, 84, 81, 79, 76, 72];
-    notes.forEach((n, i) => this.time.delayedCall(700 + i * 160, () => snd.note('glock', n, 0.22, { dur: 0.6, wet: 0.6 })));
+    this.time.delayedCall(900, () => snd.note('piano', 60, 0.3, { dur: 2.5, wet: 0.8 }));
   }
 
   private drawStairs(g: Phaser.GameObjects.Graphics, pal: (typeof PAL)['morning'], lift: number) {
@@ -825,7 +829,7 @@ export class WalkScene extends Phaser.Scene {
       const hx = this.textures.exists('fr_foot_bare#t') ? 40 : 20;
       this.gFx.fillStyle(0xd8403a, 0.55 * p); this.gFx.fillCircle(frX + 34 - hx, GY - 14, 11 * p); this.gFx.fillCircle(frX - 34 - hx, GY - 14, 7 * p);
     }
-    if (!meOff && tt > 6600) {
+    if (!meOff && tt > 8000) {
       // 自分の右の靴が、脱いでほしそうに光る
       const p = (Math.sin(this.now / 300) + 1) / 2;
       this.gFx.lineStyle(5, 0xffd27a, 0.4 + p * 0.5); this.gFx.strokeCircle(myX + 34, GY - 24, 60 + p * 8);
@@ -833,80 +837,114 @@ export class WalkScene extends Phaser.Scene {
     void lift;
   }
 
+  private putOn = 0; // 翌朝: 0=まだ / 1=左をはいた / 2=両方
   private drawEnd(g: Phaser.GameObjects.Graphics, pal: (typeof PAL)['morning'], lift: number) {
     const tt = this.w.segT;
-    if (!this.bgImg) {
-      g.fillStyle(0x3a3226, 1); g.fillRect(0, GY - 70, W, 70);
-      g.fillStyle(pal.light, 0.15); g.fillRect(W * 0.62, 0, W * 0.38, GY - 70);
-    }
-    // 一足で脱がれた靴。かかとに折りじわと絆創膏の白
-    const x = 420;
+    const INK = 0x2a2522;
+    const morning = tt > this.morningAt ? Math.min(1, (tt - this.morningAt) / 1800) : 0;
+    const mix = (a: number, b: number) => { const c = Phaser.Display.Color.Interpolate.ColorWithColor(Phaser.Display.Color.IntegerToColor(a), Phaser.Display.Color.IntegerToColor(b), 100, morning * 100); return Phaser.Display.Color.GetColor(c.r, c.g, c.b); };
+    // 玄関: 壁、引き戸(夜は家の中のあかり、朝は外の光)、上がりかまち、タイルの土間
+    g.fillStyle(mix(0x353b5e, 0xf1e8d4), 1); g.fillRect(0, 0, W, H);
+    const dx = W * 0.6, dw = W * 0.32;
+    g.fillStyle(mix(0x6a6f96, 0xfffbec), 1); g.fillRect(dx, 30, dw, GY - 40);
+    g.lineStyle(3, INK, 1); g.strokeRect(dx, 30, dw, GY - 40);
+    g.lineStyle(2, INK, 0.7); for (let k = 1; k < 4; k++) g.lineBetween(dx + (dw / 4) * k, 30, dx + (dw / 4) * k, GY - 10);
+    for (let k = 1; k < 5; k++) g.lineBetween(dx, 30 + ((GY - 40) / 5) * k, dx + dw, 30 + ((GY - 40) / 5) * k);
+    g.fillStyle(mix(0xb8955f, 0xd9b682), 1); g.fillRect(0, GY - 120, W * 0.3, 110);
+    g.lineStyle(3, INK, 1); g.strokeRect(-4, GY - 120, W * 0.3, 110); g.lineBetween(0, GY - 100, W * 0.3, GY - 100);
+    // 家の中からのあかり(夜)
+    if (morning < 1) { g.fillStyle(0xffd9a0, 0.22 * (1 - morning)); g.fillPoints(<any>[{ x: 0, y: GY - 120 }, { x: W * 0.3, y: GY - 120 }, { x: W * 0.5, y: H }, { x: 0, y: H }], true); }
+    // 朝の光(引き戸から床へ)
+    if (morning > 0) { g.fillStyle(0xfff3c8, 0.45 * morning); g.fillPoints(<any>[{ x: dx, y: GY - 10 }, { x: dx + dw, y: GY - 10 }, { x: dx + dw - 40, y: H }, { x: dx - 160, y: H }], true); }
+    g.fillStyle(mix(0x4d5070, 0xd8d0c0), 1); g.fillRect(0, GY - 10, W, H - GY + 10);
+    g.lineStyle(2, INK, 0.5); for (let k = 0; k < 12; k++) g.lineBetween(k * 90, GY - 10, k * 90 - 30, H);
+    g.lineStyle(3, INK, 1); g.lineBetween(0, GY - 10, W, GY - 10);
+    // 一足の、はき古した靴。翌朝、また足が入る
+    const xL = 420, xR = 520;
     if (this.textures.exists('me_shoe_worn#t')) {
       if (!this.endShoes.length) {
-        const mk = (dx: number, flip: boolean) => { const im = this.add.image(x + dx, GY + 30, 'me_shoe_worn#t').setOrigin(0.5, 1).setScrollFactor(0).setDepth(22); im.setScale(150 / im.width).setFlipX(flip).setAngle(flip ? -6 : 3); return im; };
-        this.endShoes = [mk(0, false), mk(150, true)];
+        const mk = (x: number, ang: number) => { const im = this.add.image(x, GY + 27, 'me_shoe_worn#t').setOrigin(0.5, 1).setScrollFactor(0).setDepth(22); im.setScale(142 / im.width).setAngle(ang); return im; };
+        this.endShoes = [mk(xL, 2), mk(xR, -3)];
       }
-      const morning = tt > this.morningAt ? Math.min(1, (tt - this.morningAt) / 1500) : 0;
-      this.endShoes.forEach((im) => im.setTint(Phaser.Display.Color.GetColor(150 + 105 * morning, 160 + 95 * morning, 200 + 55 * morning)));
-      if (morning > 0 && this.bgImg) this.bgImg.setTint(Phaser.Display.Color.GetColor(85 + 170 * morning, 96 + 159 * morning, 154 + 101 * morning));
-      return;
-    }
-    g.fillStyle(0xd6a43a, 1); g.fillRoundedRect(x, GY - 22, 70, 22, 8); g.fillRoundedRect(x + 50, GY - 18, 66, 18, 8);
-    g.lineStyle(2, pal.line, 0.8); g.strokeRoundedRect(x, GY - 22, 70, 22, 8);
-    g.lineStyle(1, 0x6b4a22, 0.9); g.lineBetween(x + 4, GY - 16, x + 12, GY - 12);
-    g.fillStyle(0xffffff, 0.9); g.fillRect(x + 140, GY - 6, 14, 6);
-    if (tt > this.morningAt) {
-      // 翌朝、光が差して、また靴に足が入る
-      const p = Math.min(1, (tt - this.morningAt) / 1500);
-      g.fillStyle(0xfff6dc, 0.5 * p); g.fillRect(0, 0, W, H);
+      const tint = mix(0x8a90c0, 0xffffff);
+      this.endShoes.forEach((im) => im.setTint(tint));
+      this.endShoes[0].setVisible(this.putOn < 1); this.endShoes[1].setVisible(this.putOn < 2);
+      if (this.putOn >= 1) this.drawLeg(g, xL, GY + 24, (xL + xR) / 2, 120, 1, true, true, false, 0, pal);
+      if (this.putOn >= 2) this.drawLeg(g, xR, GY + 24, (xL + xR) / 2, 120, 1, true, false, false, 0, pal);
+      // 次にはく方の靴が、そっと光る
+      if (this.waitPutOn && this.putOn < 2) {
+        const p = (Math.sin(this.now / 300) + 1) / 2;
+        this.gFx.lineStyle(4, 0xffd27a, 0.35 + p * 0.45); this.gFx.strokeCircle(this.putOn === 0 ? xL : xR, GY - 6, 58 + p * 6);
+      }
     }
     void lift;
   }
 
+  private waitPutOn = false;
   private endSequence() {
-    const by = this.add.text(W / 2, H * 0.36, t('title'), { fontFamily: '"Klee One", sans-serif', fontSize: '44px', color: '#f3e7cf' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    const sub = this.add.text(W / 2, H * 0.36 + 52, t('credit'), { fontFamily: '"Klee One", sans-serif', fontSize: '13px', color: '#f3e7cf', align: 'center' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    this.tweens.add({ targets: [by, sub], alpha: 0.9, duration: 2000, delay: 800, hold: 1800, yoyo: true });
+    this.putOn = 0; this.waitPutOn = false;
+    setFootHandler(() => {});
+    const title = this.add.text(W / 2, H * 0.32, t('title'), { fontFamily: '"Klee One", sans-serif', fontSize: '44px', color: '#f3e7cf' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
+    this.tweens.add({ targets: title, alpha: 0.9, duration: 2000, delay: 600, hold: 1600, yoyo: true });
     // 一日の写真を見返す(思ったより晴れている)
     const n = this.photos.length;
     const tones = [72, 76, 79, 84, 81, 79, 76, 74];
+    const t0 = 3800, photosEnd = t0 + n * 650 + 3000;
     this.photos.forEach((key, i) => {
-      this.time.delayedCall(5200 + i * 650, () => {
+      this.time.delayedCall(t0 + i * 650, () => {
         const cols = Math.min(4, Math.max(1, n));
         const row = Math.floor(i / cols), col = i % cols;
         const cw = 210, ch = 130;
         const x0 = W / 2 - ((Math.min(n, cols) - 1) * (cw + 16)) / 2;
-        const x = x0 + col * (cw + 16), y = H * 0.32 + row * (ch + 24);
+        const x = x0 + col * (cw + 16), y = H * 0.3 + row * (ch + 24);
         const frame = this.add.rectangle(x, y, cw + 12, ch + 26, 0xfbf8f1).setScrollFactor(0).setDepth(71).setAngle((i % 3 - 1) * 3).setAlpha(0);
         const im = this.add.image(x, y - 6, key).setScrollFactor(0).setDepth(72).setDisplaySize(cw, ch).setAngle(frame.angle).setAlpha(0);
         this.tweens.add({ targets: [frame, im], alpha: 1, y: '-=8', duration: 700 });
         snd.note('piano', tones[i % tones.length], 0.3, { dur: 2 });
-        this.time.delayedCall(4200 + 3600 + (n - i) * 300, () => this.tweens.add({ targets: [frame, im], alpha: 0, duration: 900 }));
+        this.time.delayedCall(photosEnd - (t0 + i * 650) + (n - i) * 120, () => this.tweens.add({ targets: [frame, im], alpha: 0, duration: 900 }));
       });
     });
-    // 写真を見終えたら、子どもの日記のような一行だけ
-    const tCaption = 5200 + n * 650 + 600;
-    this.time.delayedCall(tCaption, () => {
-      const rows = Math.ceil(n / Math.min(4, Math.max(1, n)));
-      const cy = n ? H * 0.32 + rows * 154 - 40 : H * 0.55;
-      const cap = this.add.text(W / 2, Math.min(H - 44, cy), t('diary'), { fontFamily: '"Klee One", sans-serif', fontSize: '26px', color: '#2a2522' })
+    // 写真が消えた静かな画面に、子どもの日記のような一行だけ(音は付けない)
+    const tDiary = photosEnd + 1800;
+    this.time.delayedCall(tDiary, () => {
+      const cap = this.add.text(W / 2, H * 0.36, t('diary'), { fontFamily: '"Klee One", sans-serif', fontSize: '26px', color: '#2a2522' })
         .setOrigin(0.5).setScrollFactor(0).setDepth(74).setAlpha(0).setAngle(-1.5);
       const note = this.add.rectangle(cap.x, cap.y, cap.width + 48, cap.height + 22, 0xfbf8f1).setScrollFactor(0).setDepth(73).setAlpha(0).setAngle(-1.5).setStrokeStyle(2, 0x2a2522, 0.6);
-      this.tweens.add({ targets: [cap, note], alpha: 0.97, duration: 1600, hold: 3200, yoyo: true });
-      snd.note('glock', 84, 0.25, { dur: 2 });
+      this.tweens.add({ targets: [cap, note], alpha: 0.97, duration: 1600, hold: 2000, yoyo: true });
     });
-    const tMorning = 5200 + n * 650 + 4600 + 3600;
-    this.time.delayedCall(tMorning, () => { snd.footstep('wood', 'L', 0.8); snd.note('piano', 72, 0.4, { dur: 2 }); });
-    this.time.delayedCall(tMorning + 700, () => { snd.footstep('wood', 'R', 0.8); snd.squeak(0.25); snd.note('piano', 79, 0.35, { dur: 2.5 }); });
+    // 翌朝。自分の指で、もう一度あの靴をはく
+    const tMorning = tDiary + 5600;
     this.morningAt = tMorning;
-    this.time.delayedCall(tMorning + 2200, () => {
-      const again = this.add.text(W / 2, H * 0.6, t('again'), { fontFamily: '"Klee One", sans-serif', fontSize: '18px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-      this.tweens.add({ targets: again, alpha: 0.8, duration: 1500 });
-      setFootHandler(() => { setFootHandler(() => {}); this.scene.restart(); });
-      if (DemoDriver.enabled) this.time.delayedCall(2500, () => this.scene.restart());
+    this.time.delayedCall(tMorning, () => snd.ambience('morning_birds'));
+    this.time.delayedCall(tMorning + 1800, () => {
+      this.waitPutOn = true;
+      setFootHandler((f) => {
+        if (this.putOn === 0 && f === 'L') { this.putOn = 1; snd.footstep('wood', 'L', 0.8); snd.note('piano', 72, 0.35, { dur: 2 }); }
+        else if (this.putOn === 1 && f === 'R') { this.putOn = 2; this.waitPutOn = false; snd.footstep('wood', 'R', 0.8); snd.squeak(0.3); snd.note('piano', 76, 0.32, { dur: 2.5 }); this.afterPutOn(); }
+      });
+      if (DemoDriver.enabled) { this.time.delayedCall(700, () => { this.putOn = 1; }); this.time.delayedCall(1400, () => { this.putOn = 2; this.waitPutOn = false; this.afterPutOn(); }); }
     });
     expose('ended', true);
     void lang;
+  }
+
+  /** 靴をはいたら、外から友だちの足音。白くなって終わる */
+  private afterPutOn() {
+    setFootHandler(() => {});
+    this.time.delayedCall(900, () => snd.play('step/concrete', 0.35, 1.08, 0.85));
+    this.time.delayedCall(1350, () => snd.play('step/concrete', 0.35, 1.0, 0.85));
+    this.time.delayedCall(1700, () => snd.note('glock', 84, 0.22, { dur: 2.5 }));
+    const white = this.add.rectangle(W / 2, H / 2, W, H, 0xfbf8f1).setScrollFactor(0).setDepth(80).setAlpha(0);
+    this.tweens.add({ targets: white, alpha: 1, duration: 2400, delay: 2200 });
+    this.time.delayedCall(4800, () => {
+      const by = this.add.text(W / 2, H * 0.4, t('title'), { fontFamily: '"Klee One", sans-serif', fontSize: '40px', color: '#2a2522' }).setOrigin(0.5).setScrollFactor(0).setDepth(81).setAlpha(0);
+      const sub = this.add.text(W / 2, H * 0.4 + 48, t('credit'), { fontFamily: '"Klee One", sans-serif', fontSize: '13px', color: '#2a2522' }).setOrigin(0.5).setScrollFactor(0).setDepth(81).setAlpha(0);
+      const again = this.add.text(W / 2, H * 0.68, t('again'), { fontFamily: '"Klee One", sans-serif', fontSize: '18px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(81).setAlpha(0);
+      this.tweens.add({ targets: [by, sub], alpha: 0.9, duration: 1800 });
+      this.tweens.add({ targets: again, alpha: 0.75, duration: 1500, delay: 1800 });
+      this.time.delayedCall(1800, () => setFootHandler(() => { setFootHandler(() => {}); this.scene.restart(); }));
+      if (DemoDriver.enabled) this.time.delayedCall(3500, () => this.scene.restart());
+    });
   }
 
   private drawLookOverlay(o: Phaser.GameObjects.Graphics, seg: Segment) {

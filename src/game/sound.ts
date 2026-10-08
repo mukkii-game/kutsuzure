@@ -212,7 +212,7 @@ export function music(file: string | null, vol = 0.6) {
 export function duck(on: boolean) {
   if (!ctx) return;
   dry.gain.setTargetAtTime(on ? 0.15 : 1, ctx.currentTime, on ? 0.15 : 0.6);
-  if (ambNow) ambNow.g.gain.setTargetAtTime(on ? 0.02 : tune('snd.amb'), ctx.currentTime, 0.3);
+  // 環境音(川)だけは残す
 }
 
 /** かばえた時の、小さな息(ふう) */
