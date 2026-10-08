@@ -5,7 +5,7 @@ import { installTuning } from './core/tuning';
 import { addStrings } from './core/i18n';
 import { META } from './core/meta';
 import { watchVersion } from './core/version';
-import { mountUi } from './ui/corner';
+import { mountUi, mountRotateHint } from './ui/corner';
 
 // 横長。足首の高さから見た横向きの道。
 export const GAME_WIDTH = 960;
@@ -33,4 +33,5 @@ const config: Phaser.Types.Core.GameConfig = {
 new Phaser.Game(config);
 installTuning();
 mountUi();
+mountRotateHint();
 watchVersion();

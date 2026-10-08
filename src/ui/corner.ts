@@ -25,3 +25,22 @@ export function mountUi() {
   id.textContent = BUILD_ID.slice(0, 7);
   document.body.append(id);
 }
+
+/** スマホ縦持ちの時だけ「横にしてね」の絵を出す(タップで消える。縦のままでも遊べる) */
+export function mountRotateHint() {
+  const el = document.createElement('div');
+  el.setAttribute('data-ui', '');
+  el.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;background:#faf6ecee;z-index:20;font:600 16px "Klee One",sans-serif;color:#2a2522';
+  el.innerHTML = '<svg width="120" height="90" viewBox="0 0 120 90" fill="none" stroke="#2a2522" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><rect x="14" y="20" width="34" height="58" rx="6"/><rect x="58" y="34" width="56" height="34" rx="6" stroke-dasharray="6 6"/><path d="M40 12 Q70 0 88 24"/><path d="M80 22 L88 24 L90 15"/></svg><div>よこにすると 見やすいよ</div>';
+  let dismissed = false;
+  const update = () => {
+    const portrait = window.innerHeight > window.innerWidth * 1.1;
+    const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    el.style.display = portrait && touch && !dismissed ? 'flex' : 'none';
+  };
+  el.addEventListener('pointerdown', (e) => { e.stopPropagation(); dismissed = true; update(); });
+  el.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+  window.addEventListener('resize', update);
+  document.body.append(el);
+  update();
+}
