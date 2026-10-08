@@ -19,6 +19,8 @@ export type GameEvent =
   | { type: 'heelOut' }
   | { type: 'look'; up: boolean }
   | { type: 'beat'; id: string }
+  | { type: 'relief' }
+  | { type: 'shoesOff' }
   | { type: 'hold'; on: boolean }
   | { type: 'end' };
 
@@ -51,6 +53,9 @@ export class Walk {
   friend = { mode: 'none' as FriendMode, x: 3, foot: 'R' as Foot, nextT: 0, interval: 520, facing: 1, glanceUntil: 0, lastT: -1e9 };
   synced = false;
   private returnT = 0;
+  private farSince = 0; // 2番: 離れ始めた時刻
+  private v2Zuki = 0;
+  shoesOff = false; private shoesOffT = 0;
 
   // 物語
   segIndex = 0;
@@ -89,6 +94,7 @@ export class Walk {
       this.friend.mode = 'sit';
     }
     if (s.kind === 'barefoot') { this.rub = 0; this.pain = 0; }
+    this.limpRun = 0; this.farSince = 0; this.v2Zuki = 0;
     this.events.push({ type: 'segment', seg: s, index: i });
     this.fireBeats();
   }
@@ -127,7 +133,11 @@ export class Walk {
       if (foot === 'R' && !this.heelOut && this.segT > 1200) { this.heelOut = true; this.rub = 0; this.pain = 0; this.events.push({ type: 'heelOut' }); }
       return;
     }
-    if (s.kind === 'cutscene' || s.kind === 'end') return;
+    if (s.kind === 'cutscene') {
+      if (foot === 'R' && !this.shoesOff && this.segT > 4200) this.takeShoesOff();
+      return;
+    }
+    if (s.kind === 'end') return;
     if (foot === this.lastFoot) {
       // 同じ足を 2 回: 小さくよろけるだけ。罰はない
       this.events.push({ type: 'stumble', foot });
@@ -136,17 +146,23 @@ export class Walk {
     const t = this.t;
     const interval = t - this.lastStepT;
     const holding = t < this.holdUntil;
+    let stride = 1;
     if (foot === 'L') {
       this.rl = t - this.lastRLandT;
       this.lastLLandT = t;
       this.measureShuffle();
+      // かばった一歩: 右に乗る時間が短いと、左は小さな一歩になる。そのかわり擦れが少し引く
+      if (this.rl < tune('pain.threshold') && s.kind === 'walk') {
+        stride = tune('limp.stride');
+        if (this.rub > 0.05) { this.rub = Math.max(0, this.rub - tune('pain.relief')); this.events.push({ type: 'relief' }); }
+      }
     } else {
       this.lr = t - this.lastLLandT;
       this.lastRLandT = t;
     }
     this.lastFoot = foot; this.lastStepT = t;
     this.steps++;
-    if (!holding) { this.segSteps++; this.x += 1; }
+    if (!holding) { this.segSteps++; this.x += stride; }
     this.heelOut = false;
 
     // 友だちと揃ったか(1番)/合わせてくれているか(2番)
@@ -163,7 +179,7 @@ export class Walk {
     }
     if (this.friend.mode === 'sync') {
       // 友だちはこちらと同じ瞬間に同じ足を出す
-      this.friend.foot = foot; this.friend.x = Math.max(this.friend.x + 1, this.x + 1.6); this.friend.lastT = t;
+      this.friend.foot = foot; this.friend.x = this.x + 1.6; this.friend.lastT = t;
       this.events.push({ type: 'friendStep', foot, t });
     }
     this.limpRun = this.shuffle ? this.limpRun + 1 : 0;
@@ -234,15 +250,18 @@ export class Walk {
         if (this.rub >= 1) {
           this.rub = tune('pain.after'); this.pain = 1;
           this.events.push({ type: 'zuki' });
+          if (s.verse === 2) this.v2Zuki++;
           if (this.friend.mode === 'lead' && s.verse === 1) this.glance();
         }
       }
     }
     this.pain = Math.max(0, this.pain - dt / 900);
+    if (this.lastFoot === 'L') this.rub = Math.max(0, this.rub - (dt / 1000) * 0.12);
 
     if (this.holdUntil && t >= this.holdUntil) { this.holdUntil = 0; this.events.push({ type: 'hold', on: false }); }
     // 立ち止まると見上げる
-    if ((walking || s.kind === 'barefoot') && !this.lookingUp && t - this.lastStepT > tune('look.idleMs') && this.segT > 1500) {
+    const friendBusy = s.verse === 2 && (this.friend.mode === 'lead' || this.friend.mode === 'return');
+    if ((walking || s.kind === 'barefoot') && !friendBusy && !this.lookingUp && t - this.lastStepT > tune('look.idleMs') && this.segT > 1500) {
       this.lookingUp = true; this.events.push({ type: 'look', up: true });
     }
 
@@ -260,24 +279,36 @@ export class Walk {
         else if (t >= f.nextT) this.friendStep(dist < 2 ? f.interval * 0.9 : dist > 3.5 ? f.interval * 1.25 : f.interval);
       } else {
         // 2番: 一定の歩調。離れても上限で待つ。かばい続けるか止まると戻ってくる
+        // 2番: 少し早足で前を行く。遅れる・痛む・止まると、振り向いて戻ってくる
         const dist = f.x - this.x;
-        if (dist > 6) { f.nextT = Math.max(f.nextT, t + 30); f.facing = -1; } else f.facing = 1;
-        if (dist <= 6 && t >= f.nextT) this.friendStep(tune('friend.pace'));
-        if (this.segSteps > 6 && (this.limpRun >= tune('v2.limpSteps') || t - this.lastStepT > tune('v2.idleMs'))) this.triggerReturn();
+        if (dist <= 7 && t >= f.nextT) this.friendStep(tune('friend.pace2'));
+        if (dist > 4.5) { if (!this.farSince) this.farSince = t; } else this.farSince = 0;
+        const fell = this.farSince && t - this.farSince > 1000;
+        if (this.segSteps > 5 && (fell || this.v2Zuki >= 2 || this.limpRun >= tune('v2.limpSteps') || t - this.lastStepT > tune('v2.idleMs'))) this.triggerReturn();
       }
     } else if (f.mode === 'return') {
+      // 振り向いて、少し止まって(無音)、一歩ずつ戻ってくる
       const target = this.x + 1.6;
-      f.x += (target - f.x) * Math.min(1, dt / 350);
-      if (t >= f.nextT) { f.foot = f.foot === 'L' ? 'R' : 'L'; f.nextT = t + 260; this.events.push({ type: 'friendStep', foot: f.foot, t }); }
-      if (Math.abs(f.x - target) < 0.6 || this.t - this.returnT > 1800) { f.mode = 'sync'; f.facing = 1; this.synced = true; this.events.push({ type: 'friendSync' }); }
+      if (t - this.returnT > 900 && t >= f.nextT) {
+        if (f.x - target > 0.9) { f.foot = f.foot === 'L' ? 'R' : 'L'; f.x -= 1; f.lastT = t; f.nextT = t + 420; this.events.push({ type: 'friendStep', foot: f.foot, t }); }
+        else { f.mode = 'sync'; f.facing = 1; f.x = target; this.synced = true; this.events.push({ type: 'friendSync' }); }
+      }
     }
 
     // 歩かない場面
     if (s.kind === 'cafe') {
       if ((this.heelOut && this.segT > 4500) || this.segT > (s.ms ?? 12000)) this.next();
-    } else if (s.kind === 'cutscene' || s.kind === 'end') {
+    } else if (s.kind === 'cutscene') {
+      if (!this.shoesOff && this.segT > 14000) this.takeShoesOff();
+      if (this.shoesOff && t - this.shoesOffT > 4200) this.next();
+    } else if (s.kind === 'end') {
       if (this.segT > (s.ms ?? 5000)) this.next();
     }
+  }
+
+  private takeShoesOff() {
+    this.shoesOff = true; this.shoesOffT = this.t; this.heelOut = true;
+    this.events.push({ type: 'shoesOff' });
   }
 
   private friendStep(nextInterval: number) {

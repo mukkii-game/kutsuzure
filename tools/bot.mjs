@@ -18,8 +18,8 @@ const out: any[] = [];
 for (const s of styles) {
   const w = new Walk();
   let t = 0, next = 300, foot: 'L' | 'R' = 'L', zuki = 0, shufOn = 0, aligned = 0, steps = 0, syncAt = -1, segZuki: Record<string, number> = {};
-  let stopped = false;
-  while (!w.ended && t < 600000) {
+  let stopped = false; let maxDist = 0;
+  while (!w.ended && w.seg.id !== 'home' && t < 600000) {
     if (w.seg.kind === 'cafe' || w.seg.kind === 'cutscene' || w.seg.kind === 'end') { if (t >= next) { w.step('R'); next = t + 1500; } }
     else if (t >= next) {
       if (s.idleAt && w.seg.verse === 2 && w.segSteps === 8 && !stopped) { stopped = true; next = t + 2600; }
@@ -31,9 +31,10 @@ for (const s of styles) {
       if (e.type === 'shuffle' && e.on) shufOn++;
       if (e.type === 'step') { steps++; if (e.aligned) aligned++; }
       if (e.type === 'friendSync' && syncAt < 0) syncAt = w.segSteps;
+      if (w.seg.id === 'evening') maxDist = Math.max(maxDist, w.friend.x - w.x);
     }
   }
-  out.push({ seg: w.seg.id, d: w.describe(), style: s.name, minutes: +(t / 60000).toFixed(1), steps, zuki, segZuki, shuffleOn: shufOn, alignedPct: Math.round(aligned / steps * 100), syncAtStepInV2: syncAt, ended: w.ended });
+  out.push({ seg: w.seg.id, d: w.describe(), style: s.name, minutes: +(t / 60000).toFixed(1), steps, zuki, segZuki, shuffleOn: shufOn, alignedPct: Math.round(aligned / steps * 100), syncAtStepInV2: syncAt, maxDistV2: +maxDist.toFixed(1), ended: w.seg.id === 'home' });
 }
 console.log(JSON.stringify(out, null, 1));
 `);

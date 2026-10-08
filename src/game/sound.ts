@@ -207,3 +207,20 @@ export function music(file: string | null, vol = 0.6) {
   a.play().then(() => { const up = setInterval(() => { a.volume = Math.min(vol, a.volume + 0.03); if (a.volume >= vol) clearInterval(up); }, 80); }).catch(() => {});
   bgm = a;
 }
+
+/** 音を一時的に引く(土手で友だちが靴を脱ぐ時など) */
+export function duck(on: boolean) {
+  if (!ctx) return;
+  dry.gain.setTargetAtTime(on ? 0.15 : 1, ctx.currentTime, on ? 0.15 : 0.6);
+  if (ambNow) ambNow.g.gain.setTargetAtTime(on ? 0.02 : tune('snd.amb'), ctx.currentTime, 0.3);
+}
+
+/** かばえた時の、小さな息(ふう) */
+export function breath() {
+  if (!ctx || isMuted()) return;
+  const c = ctx, t = c.currentTime;
+  const n = noise(c, 0.35), lp = c.createBiquadFilter(), g = c.createGain();
+  lp.type = 'bandpass'; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(500, t + 0.3); lp.Q.value = 0.8;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+  n.connect(lp).connect(g).connect(dry); n.start(t);
+}
