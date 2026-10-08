@@ -24,3 +24,5 @@
 | Crickets Ambient Noise - loopable `amb/night_crickets` | 環境音 | https://opengameart.org/content/crickets-ambient-noise-loopable | CC0 1.0 | Ted Kerr (Wolfgang_)(任意) | 夜 | |
 | Ambient Bird Sounds `amb/birds_light` | 環境音 | https://opengameart.org/content/ambient-bird-sounds | CC0 1.0 | isaiah658(任意) | 鳥 | |
 | Klee One | フォント | https://fonts.google.com/specimen/Klee+One | SIL OFL 1.1 | Klee One © Fontworks | タイトル・エンディングの文字 | |
+| 足の部品シート(もも・すね・素足・運動靴・はき古した靴)`src/assets/art/me_*, fr_*` | 絵(AI 生成) | assets/mine/gpt/01_leg_parts.png | AI 生成: ChatGPT(画像生成)。Mukkii が依頼文 docs/asset-request-onepaste.md で生成 | なし | 子ども2人の足。tools/slice-sheet.py で切り分け | |
+| 背景 5 枚(朝の道・夕方の道・喫茶店・土手の階段・空)`src/assets/art/bg*.jpg` | 絵(AI 生成) | assets/mine/gpt/02〜06 | AI 生成: ChatGPT(画像生成) | なし | 背景。玄関・商店街・横断歩道・夜は使い回し | |

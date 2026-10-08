@@ -33,6 +33,6 @@ export const KNOBS: Knob[] = [
   { key: 'snd.steps', label: '足音の音量', value: 0.6, min: 0, max: 1.5, step: 0.05 },
   { key: 'snd.amb', label: '環境音の音量', value: 0.35, min: 0, max: 1, step: 0.05 },
   { key: 'juice.zukiShake', label: 'ズキッの揺れ', value: 0.006, min: 0, max: 0.03, step: 0.001 },
-  { key: 'walk.stride', label: '一歩の幅', value: 64, min: 20, max: 90, step: 1, unit: 'px' },
+  { key: 'walk.stride', label: '一歩の幅', value: 100, min: 20, max: 180, step: 1, unit: 'px' },
   { key: 'story.speed', label: '物語の長さ倍率', value: 1, min: 0.3, max: 2, step: 0.1, aim: '各場面の歩数にかける。確認用に短くできる' },
 ];
