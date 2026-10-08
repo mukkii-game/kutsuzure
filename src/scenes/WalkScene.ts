@@ -78,7 +78,7 @@ export class WalkScene extends Phaser.Scene {
     const mk = (kind: 'me' | 'friend', x: number): Rig => ({ L: { from: x - 23, to: x - 23, t0: -1e9, lift: 22 }, R: { from: x + 23, to: x + 23, t0: -1e9, lift: 22 }, facing: 1, kind });
     this.me = mk('me', 0); this.fr = mk('friend', -9999);
     this.camX = 0; this.lookY = 0; this.lookTarget = 0; this.endPhase = 0; this.cafeHeel = 0;
-    this.photos = []; this.morningAt = 1e9; this.endShoes = []; this.offShoes = []; this.zukiPhotoSeg = new Set(); this.cameras.main.setZoom(1); this.bike = -1; this.holdOn = false; this.bigPuddleX = -9999;
+    this.photos = []; this.morningAt = 1e9; this.endShoes = []; this.offShoes = []; this.cameras.main.setOrigin(0.5, 0.5); this.zukiPhotoSeg = new Set(); this.cameras.main.setZoom(1); this.bike = -1; this.holdOn = false; this.bigPuddleX = -9999;
 
     makePaperTexture(this);
     makeBlotTexture(this, 'blotRed', 'rgba(196,48,52,1)', 40);
@@ -212,6 +212,7 @@ export class WalkScene extends Phaser.Scene {
         const fx = this.w.friend.x * tune('walk.stride');
         this.animFoot(this.fr, e.foot, fx);
         if (this.w.friend.mode !== 'sync') snd.footstep(seg.kind === 'barefoot' ? 'soft' : 'concrete', e.foot, 0.35);
+        if (seg.verse === 1 && this.w.segIndex >= 2 && e.foot === 'R') snd.squeak(0.12); // 友だちの靴も、小さく鳴っている
         else snd.footstep(seg.kind === 'barefoot' ? 'grass' : 'concrete', e.foot, 0.25);
         break;
       }
@@ -330,6 +331,7 @@ export class WalkScene extends Phaser.Scene {
     this.propsSeed = STORY.indexOf(seg) * 97 + 13;
     if (seg.kind === 'end') this.time.delayedCall(10, () => this.endSequence());
     if (seg.kind === 'cutscene') this.stairsSequence();
+    else { this.offShoes.forEach((o) => o.destroy()); this.offShoes = []; }
     if (seg.kind === 'barefoot') { this.stains.removeAll(true); }
   }
 
@@ -596,7 +598,13 @@ export class WalkScene extends Phaser.Scene {
     const foot = sp.shoe.setTexture(`${who}_${footKey}#t`);
     const footW = bare ? 112 : 142;
     const fs = footW / foot.frame.realWidth;
-    foot.setScale(fs).setPosition(x, y + 3).setRotation(0).setFlipX(flip).setVisible(true).setTint(tint);
+    foot.setOrigin(0.5, 1).setScale(fs).setPosition(x, y + 3).setRotation(0).setFlipX(flip).setVisible(true).setTint(tint);
+    // 友だちも朝から痛かった: 1番の途中から、右のかかとをときどき靴の中で浮かせている(気づく人だけ気づく)
+    const s0 = this.w.seg;
+    if (who === 'fr' && !far && !bare && s0.verse === 1 && this.w.segIndex >= 2) {
+      const pulse = Math.max(0, Math.sin(this.now / 650)) ** 3;
+      foot.setOrigin(flip ? 0.15 : 0.85, 1).setPosition(x + facing * footW * 0.35, y + 3).setRotation(facing * 0.16 * pulse);
+    }
     const fh = foot.frame.realHeight * fs;
     const ankleX = x - facing * footW * (bare ? 0.24 : 0.22);
     const ankleY = y + 3 - fh * (bare ? 0.62 : 0.62);
@@ -759,8 +767,11 @@ export class WalkScene extends Phaser.Scene {
     const cam = this.cameras.main;
     // 友だちが靴を脱ぐ → 音が引いて、かかとに寄る
     this.time.delayedCall(2600, () => { snd.play('cloth', 0.5); snd.duck(true); });
-    this.time.delayedCall(2900, () => { cam.zoomTo(2.1, 1100, 'Sine.easeInOut'); this.takePhoto(false); });
+    // 友だちのかかとに寄る(カメラのズームの中心をかかとに置く)
+    this.time.delayedCall(2900, () => { cam.setOrigin(560 / W, (GY - 30) / H); cam.zoomTo(2.0, 1100, 'Sine.easeInOut'); });
+    this.time.delayedCall(4300, () => this.takePhoto(false));
     this.time.delayedCall(5900, () => { cam.zoomTo(1, 1000, 'Sine.easeInOut'); });
+    this.time.delayedCall(7000, () => { cam.setOrigin(0.5, 0.5); });
     this.time.delayedCall(6600, () => { snd.duck(false); });
   }
   private onShoesOff() {
@@ -870,10 +881,21 @@ export class WalkScene extends Phaser.Scene {
         const im = this.add.image(x, y - 6, key).setScrollFactor(0).setDepth(72).setDisplaySize(cw, ch).setAngle(frame.angle).setAlpha(0);
         this.tweens.add({ targets: [frame, im], alpha: 1, y: '-=8', duration: 700 });
         snd.note('piano', tones[i % tones.length], 0.3, { dur: 2 });
-        this.time.delayedCall(4200 + (n - i) * 300, () => this.tweens.add({ targets: [frame, im], alpha: 0, duration: 900 }));
+        this.time.delayedCall(4200 + 3600 + (n - i) * 300, () => this.tweens.add({ targets: [frame, im], alpha: 0, duration: 900 }));
       });
     });
-    const tMorning = 5200 + n * 650 + 4600;
+    // 写真を見終えたら、子どもの日記のような一行だけ
+    const tCaption = 5200 + n * 650 + 600;
+    this.time.delayedCall(tCaption, () => {
+      const rows = Math.ceil(n / Math.min(4, Math.max(1, n)));
+      const cy = n ? H * 0.32 + rows * 154 - 40 : H * 0.55;
+      const cap = this.add.text(W / 2, Math.min(H - 44, cy), t('diary'), { fontFamily: '"Klee One", sans-serif', fontSize: '26px', color: '#2a2522' })
+        .setOrigin(0.5).setScrollFactor(0).setDepth(74).setAlpha(0).setAngle(-1.5);
+      const note = this.add.rectangle(cap.x, cap.y, cap.width + 48, cap.height + 22, 0xfbf8f1).setScrollFactor(0).setDepth(73).setAlpha(0).setAngle(-1.5).setStrokeStyle(2, 0x2a2522, 0.6);
+      this.tweens.add({ targets: [cap, note], alpha: 0.97, duration: 1600, hold: 3200, yoyo: true });
+      snd.note('glock', 84, 0.25, { dur: 2 });
+    });
+    const tMorning = 5200 + n * 650 + 4600 + 3600;
     this.time.delayedCall(tMorning, () => { snd.footstep('wood', 'L', 0.8); snd.note('piano', 72, 0.4, { dur: 2 }); });
     this.time.delayedCall(tMorning + 700, () => { snd.footstep('wood', 'R', 0.8); snd.squeak(0.25); snd.note('piano', 79, 0.35, { dur: 2.5 }); });
     this.morningAt = tMorning;

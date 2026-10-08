@@ -15,6 +15,7 @@ addStrings({
   title: { ja: 'くつずれ', en: 'Kutsuzure' },
   credit: { ja: 'つくった人 MUKKII ほか(CREDITS)', en: 'made by MUKKII and friends (see CREDITS)' },
   again: { ja: 'もういちど歩く', en: 'walk again' },
+  diary: { ja: 'いたかったけど、はれてた。', en: 'It hurt. But it was sunny.' },
 });
 
 (window as any).__BUILD_ID__ = META.version;
