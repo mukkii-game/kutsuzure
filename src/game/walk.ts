@@ -261,7 +261,7 @@ export class Walk {
     if (this.holdUntil && t >= this.holdUntil) { this.holdUntil = 0; this.events.push({ type: 'hold', on: false }); }
     // 立ち止まると見上げる
     const friendBusy = s.verse === 2 && (this.friend.mode === 'lead' || this.friend.mode === 'return');
-    if ((walking || s.kind === 'barefoot') && !friendBusy && !this.lookingUp && t - this.lastStepT > tune('look.idleMs') && this.segT > 1500) {
+    if (false && (walking || s.kind === 'barefoot') && !friendBusy && !this.lookingUp && t - this.lastStepT > tune('look.idleMs') && this.segT > 1500) { // 見上げは裸足の場面の一度だけ(WalkScene の lookup)
       this.lookingUp = true; this.events.push({ type: 'look', up: true });
     }
 

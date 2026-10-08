@@ -28,6 +28,6 @@ export const STORY: Segment[] = [
   { id: 'evening', kind: 'walk', verse: 2, bg: 'street_e', tod: 'evening', steps: 40, blister: [1, 1], friend: 'lead', friendStart: 2, waitSync: true, amb: 'evening_outdoor', beats: [{ at: 4, id: 'crows' }] },
   { id: 'together', kind: 'walk', verse: 2, bg: 'street_e2', tod: 'evening', steps: 32, blister: [0.5, 0.25], friend: 'sync', amb: 'evening_outdoor', beats: [{ at: 12, id: 'photo' }] },
   { id: 'stairs', kind: 'cutscene', verse: 3, bg: 'stairs', tod: 'dusk', ms: 30000, blister: [0, 0], friend: 'sit', amb: 'river' },
-  { id: 'barefoot', kind: 'barefoot', verse: 3, bg: 'grass', tod: 'dusk', steps: 44, blister: [0, 0], friend: 'sync', amb: 'river', beats: [{ at: 30, id: 'lookup' }] },
+  { id: 'barefoot', kind: 'barefoot', verse: 3, bg: 'grass', tod: 'dusk', steps: 44, blister: [0, 0], friend: 'sync', amb: 'river', beats: [{ at: 30, id: 'lookup', hold: 7000 }] },
   { id: 'home', kind: 'end', verse: 3, bg: 'genkan_n', tod: 'night', ms: 600000, blister: [0, 0], friend: 'none', amb: 'night_crickets' },
 ];

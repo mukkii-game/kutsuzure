@@ -42,6 +42,7 @@ export class WalkScene extends Phaser.Scene {
   private dbg?: Phaser.GameObjects.Text;
   private titleText?: Phaser.GameObjects.Text;
   private hintL?: Phaser.GameObjects.Text; private hintR?: Phaser.GameObjects.Text;
+  private padL!: Phaser.GameObjects.Container; private padR!: Phaser.GameObjects.Container;
   private camX = 0; private lookY = 0; private lookTarget = 0;
   private segStartX = 0;
   private lastVoice: snd.Voice | null = null;
@@ -99,9 +100,18 @@ export class WalkScene extends Phaser.Scene {
       .setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0).setAngle(-3);
     if (this.w.segIndex === 0) this.tweens.add({ targets: this.titleText, alpha: 0.85, duration: 1800, delay: 300 });
     const keyHint = !this.sys.game.device.input.touch;
-    this.hintL = this.add.text(W * 0.25, H * 0.62, keyHint ? 'F / ←' : '', { fontFamily: 'sans-serif', fontSize: '16px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    this.hintR = this.add.text(W * 0.75, H * 0.62, keyHint ? 'J / →' : '', { fontFamily: 'sans-serif', fontSize: '16px', color: '#2f3a56' }).setOrigin(0.5).setScrollFactor(0).setDepth(70).setAlpha(0);
-    if (this.w.segIndex === 0) this.tweens.add({ targets: [this.hintL, this.hintR], alpha: 0.5, duration: 1200, delay: 2500 });
+    // 操作の案内: 画面の左下=ひだり、右下=みぎ(次に押す方が明るい)
+    const pad = (x: number, label: string, key: string) => {
+      const c = this.add.container(x, H - 52).setScrollFactor(0).setDepth(70).setAlpha(0);
+      const bg = this.add.graphics();
+      bg.fillStyle(0xfbf8f1, 0.88); bg.fillRoundedRect(-92, -30, 184, 60, 26);
+      bg.lineStyle(3, 0x2a2522, 0.9); bg.strokeRoundedRect(-92, -30, 184, 60, 26);
+      const tx = this.add.text(0, 0, keyHint ? `${label}  ${key}` : label, { fontFamily: '"Klee One", sans-serif', fontSize: '24px', color: '#2a2522' }).setOrigin(0.5);
+      c.add([bg, tx]);
+      return c;
+    };
+    this.padL = pad(150, t('left'), 'F'); this.padR = pad(W - 150, t('right'), 'J');
+    this.hintL = undefined; this.hintR = undefined;
 
     if (query.has('debug')) this.dbg = this.add.text(8, 8, '', { fontFamily: 'monospace', fontSize: '12px', color: '#000', backgroundColor: '#ffffffaa' }).setScrollFactor(0).setDepth(99);
     this.add.text(W - 6, H - 4, `build ${expose.length ? '' : ''}${(window as any).__BUILD_ID__ ?? ''}`, { fontFamily: 'monospace', fontSize: '9px', color: '#00000044' }).setOrigin(1, 1).setScrollFactor(0).setDepth(99);
@@ -195,6 +205,7 @@ export class WalkScene extends Phaser.Scene {
       case 'zuki': {
         snd.zuki();
         if (seg.verse === 1) this.hintSteps = 8;
+        this.blink();
         this.cameras.main.shake(160, tune<number>('juice.zukiShake'));
         this.flash = 1;
         if (navigator.vibrate) try { navigator.vibrate(14); } catch { /* */ }
@@ -251,6 +262,31 @@ export class WalkScene extends Phaser.Scene {
 
   private camOffset() { return this.camX; }
 
+  /** 案内の明るさ: 出す時だけ出す。次に押す方を明るく */
+  private updatePads(seg: Segment) {
+    let show = false, want: Foot | null = null;
+    const idle = this.now - this.lastStepAt;
+    if (seg.kind === 'walk' || seg.kind === 'barefoot') {
+      const next: Foot = this.lastStepFoot === 'L' ? 'R' : 'L';
+      if (this.w.segIndex === 0 && this.w.steps < 8) { show = true; want = next; }
+      if (this.hintSteps > 0) { show = true; want = this.lastStepFoot === 'R' && idle < 400 ? 'L' : next; }
+      if (this.w.steps >= 8 && idle > 4000 && !this.w.holdUntil) { show = true; want = next; } // 迷って止まっている時
+    } else if (seg.kind === 'cafe') { show = !this.w.heelOut && this.w.segT > 1500; want = 'R'; }
+    else if (seg.kind === 'cutscene') { show = !this.w.shoesOff && this.now - this.stairsT0 > 8000; want = 'R'; }
+    else if (seg.kind === 'end') { show = this.waitPutOn; want = this.putOn === 0 ? 'L' : 'R'; }
+    const pulse = 0.75 + 0.25 * Math.sin(this.now / 220);
+    const target = (p: Phaser.GameObjects.Container, f: Foot) => (show ? (want === f ? pulse : 0.28) : 0);
+    this.padL.alpha += (target(this.padL, 'L') - this.padL.alpha) * 0.2;
+    this.padR.alpha += (target(this.padR, 'R') - this.padR.alpha) * 0.2;
+  }
+
+  /** 痛い時に一度だけ、ぎゅっとまばたき(目ショボ) */
+  private blink() {
+    const top = this.add.rectangle(W / 2, 0, W, 0, 0x1a1410).setOrigin(0.5, 0).setScrollFactor(0).setDepth(57).setAlpha(0.85);
+    const bot = this.add.rectangle(W / 2, H, W, 0, 0x1a1410).setOrigin(0.5, 1).setScrollFactor(0).setDepth(57).setAlpha(0.85);
+    this.tweens.add({ targets: [top, bot], height: H * 0.22, duration: 110, yoyo: true, hold: 70, ease: 'Sine.easeInOut', onComplete: () => { top.destroy(); bot.destroy(); } });
+  }
+
   /** 足もとから、手描きの音符がぽんと出る */
   private doodle(foot: Foot, ch: string) {
     const fx = this.footPos(this.me[foot]) - this.camX;
@@ -268,8 +304,29 @@ export class WalkScene extends Phaser.Scene {
       case 'shutter': snd.play('door_creak', 0.25); break;
       case 'bell': snd.play('bell_ding', 0.3, 1.1, -0.3); break;
       case 'photo': this.takePhoto(true); break;
-      case 'lookup': this.lookTarget = 1; this.lookStart = this.now; this.lookShot = false; this.time.delayedCall(5200, () => { if (this.w.seg.kind === 'barefoot') this.lookTarget = 0; }); break;
+      case 'lookup': this.skyCut(); break;
     }
+  }
+
+  /** 裸足の場面で一度だけ: ふたりで立ち止まって空を見上げる(視点の切り替え。カメラは持ち上げない) */
+  private skyCut() {
+    if (!this.textures.exists('bg_sky')) return;
+    const sky = this.add.image(W / 2, H / 2, 'bg_sky').setScrollFactor(0).setDepth(55).setAlpha(0);
+    sky.setScale(Math.max(W / sky.width, H / sky.height) * 1.04);
+    const lidT = this.add.rectangle(W / 2, 0, W, H, 0x1a1410).setOrigin(0.5, 1).setScrollFactor(0).setDepth(56);
+    const lidB = this.add.rectangle(W / 2, H, W, H, 0x1a1410).setOrigin(0.5, 0).setScrollFactor(0).setDepth(56);
+    lidT.y = H / 2; lidB.y = H / 2; lidT.setAlpha(0); lidB.setAlpha(0);
+    // 目を閉じて(暗く)→ 空を見上げて、ゆっくり目を開ける → しばらく → 戻る
+    this.tweens.add({ targets: [lidT, lidB], alpha: 1, duration: 500 });
+    this.time.delayedCall(550, () => {
+      sky.setAlpha(1);
+      this.tweens.add({ targets: lidT, y: 0, duration: 1400, ease: 'Sine.easeOut' });
+      this.tweens.add({ targets: lidB, y: H, duration: 1400, ease: 'Sine.easeOut' });
+      this.tweens.add({ targets: sky, y: H / 2 - 12, duration: 6000 });
+      snd.note('piano', 72, 0.35, { dur: 3 }); snd.note('piano', 79, 0.25, { dur: 3, when: (snd.ac()?.currentTime ?? 0) + 0.4 });
+      this.time.delayedCall(2200, () => this.takePhoto(false));
+    });
+    this.time.delayedCall(6200, () => this.tweens.add({ targets: [sky, lidT, lidB], alpha: 0, duration: 1200, onComplete: () => { sky.destroy(); lidT.destroy(); lidB.destroy(); } }));
   }
 
   /** 今の画面を 1 枚の写真として残す(最後に並べる) */
@@ -287,7 +344,7 @@ export class WalkScene extends Phaser.Scene {
 
   private fadeTitle() {
     if (this.titleText && this.titleText.alpha > 0 && this.w.steps >= 1) {
-      this.tweens.add({ targets: [this.titleText, this.hintL, this.hintR], alpha: 0, duration: 1600 });
+      this.tweens.add({ targets: [this.titleText], alpha: 0, duration: 1600 });
     }
   }
 
@@ -346,8 +403,7 @@ export class WalkScene extends Phaser.Scene {
     const meX = this.w.x * stride;
     const fixed = seg.kind === 'cafe' || seg.kind === 'cutscene' || seg.kind === 'end';
     if (!fixed) this.camX += (meX - W * 0.38 - this.camX) * 0.08;
-    this.lookY += (this.lookTarget - this.lookY) * 0.04;
-    if (this.lookTarget === 1 && !this.lookShot && this.now - this.lookStart > 1500 && this.lookY > 0.9) { this.lookShot = true; this.takePhoto(); }
+    this.lookY = 0; // カメラは腰より上に上げない
     const pal = PAL[seg.tod];
     const lift = this.lookY * 380; // 見上げると世界が下へ
 
@@ -399,6 +455,7 @@ export class WalkScene extends Phaser.Scene {
     if (this.lookY > 0.05 && this.cleanFrames <= 0) this.drawLookOverlay(o, seg);
     if (this.cleanFrames > 0) this.cleanFrames--;
     this.paper.tilePositionX = this.camX * 0.3;
+    this.updatePads(seg);
 
     if (this.dbg) {
       const d = this.w.describe();
@@ -432,7 +489,7 @@ export class WalkScene extends Phaser.Scene {
     }
     if (this.skyImg) {
       const topOfBg = this.bgImg ? this.bgImg.y - this.bgImg.displayHeight : GY - 120 + lift;
-      this.skyImg.y = topOfBg + 40; this.skyImg.setVisible(this.lookY > 0.02);
+      this.skyImg.y = topOfBg + 40; this.skyImg.setVisible(false);
     }
   }
 
