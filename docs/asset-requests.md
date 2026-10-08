@@ -13,12 +13,13 @@
 ```
 これから短編ゲームの絵を何枚も続けて頼みます。全部この画風でそろえてください。
 
-画風: 日本の絵本のような、紙に描いた透明水彩と細いインクの線。線は少しゆらぎのある手描き。
-紙のざらっとした質感が見える。色数は少なめ、やわらかく、少し褪せた色。にじみと塗り残しの白を生かす。
-写実ではなく、でもかわいすぎない。大人も泣ける静かな絵本の雰囲気。
-カメラ: 地面から30cmくらいの低さ(足首の高さ)から、真横〜少し斜めに見た構図。
+画風: 新聞の4コマ漫画のような、手描きのシンプルなイラスト。黒いペンの線は少し太さにむらがあり、ゆらゆらした手描き。
+色は平塗りで少なめ(淡い色、塗り残しの白が多い)。背景は描き込みすぎず、線数本で場所が分かる程度。
+影やグラデーションはほとんど使わない。素朴で、少しとぼけた、あたたかい雰囲気。
+主人公は小学生くらいの子ども2人。ただし足もと(ひざから下)しか描かない。
+カメラ: 地面から30cmくらいの低さ(足首の高さ)から、真横に見た構図。
 人の顔や全身は絶対に描かない。文字・看板の文字・ロゴも描かない。
-既存のアニメやキャラクターに似せない。
+既存の漫画やアニメのキャラクター・服の柄(ジグザグ模様など)に似せない。
 舞台: 日本の小さな町の、なんでもない一日。
 ```
 
@@ -41,18 +42,18 @@
 
 | 番号 | ファイル名 | 頼む文 |
 |---|---|---|
-| ★11 | sp_shoe_mustard.png | おろしたての辛子色(マスタードイエロー)の革靴、片方だけ。真横、つま先は右。中に足は入っていない。透明背景。 |
-| ★12 | sp_leg_me.png | ひざから下の片足だけ。紺色のすそ短めのズボン、白い靴下、足首まで。靴ははいていない(靴は別に重ねる)。真横、つま先は右。透明背景。 |
-| ★13 | sp_shoe_white.png | 新品の白いスニーカー、片方だけ。真横、つま先は右。透明背景。 |
-| ★14 | sp_leg_friend.png | ひざから下の片足だけ。明るいベージュのワイドパンツのすそ、くるぶし丈の靴下。靴ははいていない。真横、つま先は右。透明背景。 |
-| ★15 | sp_barefoot.png | 素足、ひざから下。紺のズボンのすそをまくっている。かかとに小さな白い絆創膏。真横、つま先は右。透明背景。 |
-| 16 | sp_barefoot_friend.png | 素足、ひざから下。ベージュのパンツのすそをまくっている。かかとが少し赤い。真横、つま先は右。透明背景。 |
+| ★11 | sp_shoe_mustard.png | おろしたての、子ども用の黄色い運動靴(マジックテープ式)、片方だけ。真横、つま先は右。中に足は入っていない。透明背景。 |
+| ★12 | sp_leg_me.png | 小学生の子どもの、ひざから下の片足だけ。紺色の半ズボンのすそが少し見え、ひざこぞう、白い靴下。靴ははいていない(靴は別に重ねる)。真横、つま先は右。透明背景。 |
+| ★13 | sp_shoe_white.png | 新品の、子ども用の白い運動靴(青いライン入り)、片方だけ。真横、つま先は右。透明背景。 |
+| ★14 | sp_leg_friend.png | 小学生の子どもの、ひざから下の片足だけ。赤いキュロットのすそが少し見え、ひざこぞう、くるぶし丈の靴下。靴ははいていない。真横、つま先は右。透明背景。 |
+| ★15 | sp_barefoot.png | 小学生の素足、ひざから下。紺の半ズボン。かかとに小さな白い絆創膏。真横、つま先は右。透明背景。 |
+| 16 | sp_barefoot_friend.png | 小学生の素足、ひざから下。赤いキュロット。かかとが少し赤い。真横、つま先は右。透明背景。 |
 
 ### 公開用(あれば)
 
 | 番号 | ファイル名 | 頼む文 |
 |---|---|---|
-| 17 | key_visual.png | 横長 1536×1024。夕方の河川敷の道に、靴を手に持った二人の、ひざから下だけが並んで歩いている。素足。片方のかかとに絆創膏。空は広くて、思ったより晴れている。文字は入れない。 |
+| 17 | key_visual.png | 横長 1536×1024。夕方の河川敷の道に、運動靴を手に持った小学生二人の、ひざから下だけが並んで歩いている。素足。片方のかかとに絆創膏。空は広くて、思ったより晴れている。文字は入れない。 |
 
 ---
 
@@ -62,7 +63,7 @@
 
 | 番号 | ファイル名 | 頼む文(英語のほうが通りやすい) |
 |---|---|---|
-| ★M1 | m1_barefoot.mp3 | `Instrumental, no vocals. Gentle, light-hearted shuffle in C major, 92 BPM. Felt piano melody, marimba, pizzicato strings, soft brushes, a little music box. Feels like walking barefoot on warm grass at sunset with a friend after a long day — a bit tearful but smiling. 1 to 2 minutes, ends softly.` |
+| ★M1 | m1_barefoot.mp3 | `Instrumental, no vocals. Gentle, light-hearted shuffle in C major, 92 BPM. Toy piano and felt piano melody, marimba, pizzicato strings, soft brushes, a little music box. Simple and childlike, like a Sunday comic strip. Feels like walking barefoot on warm grass at sunset with a friend after a long day — a bit tearful but smiling. 1 to 2 minutes, ends softly.` |
 | M2 | m2_title.mp3 | `Instrumental, no vocals. Very quiet morning ambience piece in C major, slow. Solo felt piano with soft room noise, sparse notes, hopeful but a little lonely. Loops seamlessly, about 60 seconds.` |
 
 ---
