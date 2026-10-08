@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { expose } from '../core/demo';
 import { META } from '../core/meta';
-import { preloadArt } from '../game/art';
+import { preloadArt, trimParts } from '../game/art';
 import { installHub } from '../game/input-hub';
 
 export class Boot extends Phaser.Scene {
@@ -15,6 +15,7 @@ export class Boot extends Phaser.Scene {
   create() {
     expose('version', META.version);
     expose('scene', 'Boot');
+    trimParts(this);
     installHub(this.game.canvas);
     this.scene.start('Walk');
   }

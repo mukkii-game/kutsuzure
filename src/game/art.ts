@@ -15,12 +15,8 @@ export const ART_FILES: Record<string, string> = {
   bg_grass: 'bg08_riverbank_grass.png',
   bg_sky: 'bg09_sky.png',
   bg_genkan_n: 'bg10_genkan_night.png',
-  sp_shoe_me: 'sp_shoe_mustard.png',
-  sp_leg_me: 'sp_leg_me.png',
-  sp_shoe_friend: 'sp_shoe_white.png',
-  sp_leg_friend: 'sp_leg_friend.png',
-  sp_bare_me: 'sp_barefoot.png',
-  sp_bare_friend: 'sp_barefoot_friend.png',
+  me_thigh: 'me_thigh.png', me_shin: 'me_shin.png', me_shoe: 'me_shoe.png', me_shin_bare: 'me_shin_bare.png', me_foot_bare: 'me_foot_bare.png',
+  fr_thigh: 'fr_thigh.png', fr_shin: 'fr_shin.png', fr_shoe: 'fr_shoe.png', fr_shin_bare: 'fr_shin_bare.png', fr_foot_bare: 'fr_foot_bare.png',
 };
 
 // src/assets/art/ に置いた絵だけが束ねられる(無い絵を読みに行って 404 を出さない)
@@ -79,3 +75,23 @@ export function makeBlotTexture(scene: Phaser.Scene, key: string, color: string,
 }
 
 export const hasTex = (scene: Phaser.Scene, key: string) => scene.textures.exists(key) && scene.textures.get(key).key !== '__MISSING';
+
+/** 透明な余白を切り落とした版を `${key}#t` として作る(AI の絵は余白がまちまちなので) */
+export function trimParts(scene: Phaser.Scene) {
+  for (const key of Object.keys(ART_FILES)) {
+    if (!/^(me|fr)_/.test(key) || !scene.textures.exists(key)) continue;
+    const src = scene.textures.get(key).getSourceImage() as HTMLImageElement;
+    const w = src.width, h = src.height;
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+    const cx = cv.getContext('2d')!; cx.drawImage(src, 0, 0);
+    const d = cx.getImageData(0, 0, w, h).data;
+    let x0 = w, y0 = h, x1 = 0, y1 = 0;
+    for (let y = 0; y < h; y += 2) for (let x = 0; x < w; x += 2) {
+      if (d[(y * w + x) * 4 + 3] > 24) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    }
+    if (x1 <= x0 || y1 <= y0) continue;
+    const out = document.createElement('canvas'); out.width = x1 - x0 + 2; out.height = y1 - y0 + 2;
+    out.getContext('2d')!.drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+    scene.textures.addCanvas(`${key}#t`, out);
+  }
+}

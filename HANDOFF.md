@@ -2,28 +2,45 @@
 
 <!-- セッション終了時に AI が更新。別の AI が読んで続きを始められる内容にする。 -->
 
-## 現状
-- 雛形のまま。Play シーンは動くサンプル。
+## 現状(2026-10-08)
+- 公開: https://mukkii-game.github.io/kutsuzure/ (main に push で更新)
+- 企画は SPEC.md。A案「タン、タタン」を、8 切り口 × 2 案 → 軸別審査 → 3 案から人間が選んだ(DECISIONS.md)。
+- 遊び: 左右の足をタップで一歩一音。右に乗る時間が長いと擦れ → ズキッ。右の後すぐ左(かばい歩き)で痛まず、伴奏がシャッフルに跳ね、♪が出る。かばうと歩幅が半分になり遅れる。
+- 物語: 玄関 → 朝の道(友だち合流)→ 商店街 → 横断歩道(信号待ちで友だちのかかとが浮く伏線)→ 喫茶店のテーブルの下(右の靴タップでかかとを抜く)→ 2番・夕方(遅れる/2回痛む/止まると友だちが振り向き、一歩ずつ戻って同じ拍で歩く)→ 土手(友だちが靴を脱ぐ、かかとが赤い、寄る。自分は右の靴をタップして脱ぐ)→ 裸足(見上げると晴れた空)→ 玄関・一日の写真の振り返り → 翌朝。
+- 音: VSCO-2-CE(CC0)の実楽器録音を一歩ごとに鳴らす(src/game/sound.ts)。足音・環境音は Kenney/OGA の CC0。
+- 絵: 今はコード描画(新聞の4コマ風の手描き線、小学生の足、運動靴)。**Mukkii が ChatGPT で部品を生成中**。`src/assets/art/` に docs/asset-requests.md のファイル名で置けば自動で差し替わる(足は もも/すね/靴 の部品を関節で回す。余白は自動で切り落とす)。
+- 調整: F2 で調整パネル。数値は全部 src/tuning.ts。「手触りの版」で blend / marimba / felt / minimal を切替。
+
+## 確かめ方
+- `node tools/bot.mjs` … 描画なしで 5 通りの歩き方を最後まで回す(ズキッ回数・2番で友だちが戻る歩数・最大距離)
+- `node tools/shots.mjs 6` … 場面ごとのスクショ(?seg=N で途中から始められる)
+- `node tools/run-shots.mjs <seg> <秒> <枚>` … 自動プレイを撮る
+- `?debug=1` … 画面左上に生の入力数と状態
 
 ## 次の一手
-- SPEC.md を書いて Play シーンを作品に置き換える。
-
-## ユーザーが次にやる手順(v1 受け入れ)
-1. このブランチ(claude/game-template-v1)を main にマージする(GitHub で PR を作らず、`git merge` か GitHub 上の Compare → Merge)。
-2. repo の Settings → Pages → Build and deployment → Source を「GitHub Actions」にする。
-3. Actions の「Build and Deploy (Pages)」が緑になり、https://mukkii-game.github.io/web-app-template/ で雛形が動くのを確認。
-4. Settings → General → 「Template repository」にチェック。以後「Use this template」で新作を生やせる。
-5. itch.io に出す時は repo secret `BUTLER_API_KEY` を入れ、Actions の「Publish to itch.io」で `user/slug` を指定して実行。
-
-## この環境で確認できたこと(2026-09-14)
-- `npm ci` → `tsc --noEmit` → `vite build` → `node tools/check.mjs`(自動プレイでスコア増加、コンソールエラーなし、スクショ 3 枚)→ `node tools/record.mjs`(webm 録画)まで通った。
-- 未確認: CI 上での実行、itch.io への実 push、`tools/promo.sh`(ffmpeg がこの環境に無い)。
+- 届いた AI 画像を src/assets/art/ に入れて見た目を確認(背景はパンの量、部品は関節位置の調整が要るかも: WalkScene.spriteLeg)
+- Mukkii の実機プレイの感想で tuning.ts を詰める
+- itch.io: publish.json の文面は入れてある。Viewport 960×540
 
 ## 既知の問題
-- ローカルで Playwright のブラウザ版が合わない時は `PW_CHROMIUM=/path/to/chrome node tools/check.mjs` で既存の Chromium を指定できる。
-- Phaser が 1.6MB あり Vite が警告を出すが、動作に問題はない(manualChunks で分離済み)。
+- 横長 960×540。スマホ縦持ちだと小さい(QUESTIONS.md)
+- 土手の座りポーズは脚の描き方が立ちのままで不自然
+- 早歩き(350ms 間隔)だとかばわなくても痛みが少なく、シャッフルを知らずに終わる人がいる
+- 音はこの環境で聴いて確かめていない(合成ではなく録音なので大外れはないはず)
+
+## 面白さの自己評価と弱いところ
+(仕上げ時に記入)
+
+## Mukkii が遊んで確かめてほしい点 3 つ
+(仕上げ時に記入)
 
 ## 全体に共有したい気づき
 <!-- 他の作品でも踏みそうな罠・効いた手だけ。この作品だけの話は「既知の問題」へ。
      1 件ずつ 5 項目で: 症状 → 原因 → 修正 → どう確かめたか → 未確認な点。日付を付ける。
      会議室が毎日回収し、雛形の docs/knowledge/ に取り込む。取り込まれたものは消さなくてよい。 -->
+- 2026-10-08 会議室: knowledge/process-patterns.md / 役立った(「企画を多角的に出して軸ごとの審査役で絞る」をそのまま Workflow にした。16 案 → 5 審査 → 3 案で 25 分)
+- 2026-10-08 会議室: knowledge/tables/assets.csv / 役立った(Kenney・OGA を先に当たれた)。ただしクラウドからは効果音ラボ・OtoLogic・freesound・itch.io・pixabay が通らない。
+- 2026-10-08 クラウドの網: 楽器の 1 音サンプルは VSCO-2-CE(github、CC0)が取れる。一歩一音のような「音を演奏させる」作品は合成音より圧倒的にまし。注意: VSCO のマリンバ・木琴・グロッケン・チェロピチカートはファイル名が実音より 1 オクターブ低い(実測で直した)。
+- 2026-10-08 面白さの確認に効いた手: 描画なしの bot(tools/bot.mjs)で「歩き方 5 通り × 最後まで」を回すと、山場が起きない・永遠に終わらない等の致命傷が 1 秒で出る。さらに別の AI に「辛口のディレクター」としてレビューさせると、自分では見えない「山場が画面の外で起きている」を指摘された。
+- 2026-10-08 Mukkii の評価: AI のコード描画の絵は「ヘボい」。絵・BGM は生成 AI か拾い物が前提。クラウド環境に画像・音楽生成 API の鍵が無いのがボトルネック(整備セッションに憲法候補として送付済み)。
+- 2026-10-08 SVG を PNG にするなら Playwright の Chromium に executablePath を渡す(ImageMagick は rsvg が無い)。GitHub の検索 API はクラウドで 403。

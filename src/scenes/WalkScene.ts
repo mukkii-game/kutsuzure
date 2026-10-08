@@ -58,6 +58,8 @@ export class WalkScene extends Phaser.Scene {
   private bigPuddleX = -9999;
   private cleanFrames = 0;
   private zukiPhotoSeg = new Set<number>();
+  private legSprites = new Map<string, { thigh: Phaser.GameObjects.Image; shin: Phaser.GameObjects.Image; shoe: Phaser.GameObjects.Image }>();
+  private gFx!: Phaser.GameObjects.Graphics;
   private stumbleAt = -1e9;
   private morningAt = 1e9;
   private lastStepAt = -1e9; private lastStepFoot: Foot = 'R';
@@ -88,6 +90,8 @@ export class WalkScene extends Phaser.Scene {
     this.stains = this.add.container(0, 0);
     this.gLegs = this.add.graphics().setScrollFactor(0);
     this.gOver = this.add.graphics().setScrollFactor(0).setDepth(50);
+    this.gFx = this.add.graphics().setScrollFactor(0).setDepth(20);
+    this.legSprites = new Map();
     this.paper = this.add.tileSprite(W / 2, H / 2, W, H, 'paper').setScrollFactor(0).setDepth(60).setBlendMode(Phaser.BlendModes.MULTIPLY).setAlpha(0.3);
 
     // タイトル(玄関で最初の一歩まで)
@@ -109,7 +113,7 @@ export class WalkScene extends Phaser.Scene {
     this.demo = new DemoDriver((tt) => {
       if (tt < nextAt) return;
       const seg = this.w.seg;
-      if (seg.kind === 'cafe') { this.queue.push('R'); nextAt = tt + 2000; return; }
+      if (seg.kind === 'cafe' || seg.kind === 'cutscene') { this.queue.push('R'); nextAt = tt + 2000; return; }
       this.queue.push(foot);
       const limp = this.w.blister > 0.2;
       nextAt = tt + (foot === 'R' ? (limp ? 170 : 300) : (limp ? 520 : 300));
@@ -354,7 +358,8 @@ export class WalkScene extends Phaser.Scene {
       this.bgImg.y = H + lift;
     }
 
-    const g = this.gLegs; g.clear();
+    const g = this.gLegs; g.clear(); this.gFx.clear();
+    for (const sp of this.legSprites.values()) { sp.thigh.setVisible(false); sp.shin.setVisible(false); sp.shoe.setVisible(false); }
     const off = -this.camX;
     this.gGround && this.drawExtras(this.gGround, pal, lift);
     if (seg.kind === 'cafe') this.drawCafe(g, pal, lift);
@@ -561,6 +566,38 @@ export class WalkScene extends Phaser.Scene {
     }
   }
 
+  /** AI の絵の部品で描く足(もも・すね・靴を関節で回す) */
+  private spriteLeg(who: string, far: boolean, bare: boolean, x: number, y: number, facing: number, hemX: number, hemY: number, kneeX: number, kneeY: number, ankleX: number, ankleY: number) {
+    const id = `${who}-${far ? 'f' : 'n'}`;
+    let sp = this.legSprites.get(id);
+    const tex = (k: string) => (this.textures.exists(`${who}_${k}#t`) ? `${who}_${k}#t` : `${who}_${k.replace('_bare', '')}#t`);
+    if (!sp) {
+      const base = (who === 'me' ? 30 : 24) + (far ? 0 : 3);
+      sp = {
+        thigh: this.add.image(0, 0, tex('thigh')).setScrollFactor(0).setOrigin(0.5, 0.04).setDepth(base),
+        shin: this.add.image(0, 0, tex('shin')).setScrollFactor(0).setOrigin(0.5, 0.03).setDepth(base + 1),
+        shoe: this.add.image(0, 0, tex('shoe')).setScrollFactor(0).setOrigin(0.5, 1).setDepth(base + 2),
+      };
+      this.legSprites.set(id, sp);
+    }
+    const tint = far ? 0xd8d8d8 : 0xffffff;
+    const seg = (img: Phaser.GameObjects.Image, ax: number, ay: number, bx: number, by: number, overlap: number) => {
+      const len = Math.hypot(bx - ax, by - ay) * overlap;
+      const sc = len / img.frame.realHeight;
+      img.setPosition(ax, ay).setScale(sc).setRotation(Math.atan2(bx - ax, -(by - ay)) * -1 + 0).setVisible(true).setTint(tint);
+      img.setRotation(-Math.atan2(bx - ax, by - ay));
+      img.setFlipX(facing < 0);
+    };
+    if (this.textures.exists(tex('thigh'))) { sp.thigh.setTexture(tex('thigh')); seg(sp.thigh, hemX, hemY - 26, kneeX, kneeY, 1.12); }
+    sp.shin.setTexture(tex(bare ? 'shin_bare' : 'shin')); seg(sp.shin, kneeX, kneeY - 8, ankleX, ankleY, 1.08);
+    const footKey = bare ? tex('foot_bare') : tex('shoe');
+    if (this.textures.exists(footKey)) {
+      sp.shoe.setTexture(footKey);
+      const wTarget = bare ? 58 : 74;
+      sp.shoe.setScale(wTarget / sp.shoe.frame.realWidth).setPosition(x, y + 2).setRotation(0).setFlipX(facing < 0).setVisible(true).setTint(tint);
+    }
+  }
+
   /** 8fps で揺れるインクの線(ボイリング) */
   private jit(i: number, amp = 1.2) {
     const f = Math.floor(this.now / 125);
@@ -571,24 +608,31 @@ export class WalkScene extends Phaser.Scene {
     return pts.map((p, i) => ({ x: p.x + this.jit(seed + i * 2, amp), y: p.y + this.jit(seed + i * 2 + 1, amp) }));
   }
 
-  private drawLeg(g: Phaser.GameObjects.Graphics, x: number, y: number, hipX: number, hipY: number, facing: number, isMe: boolean, far: boolean, bare: boolean, red: number, pal: (typeof PAL)['morning'], bend = 0) {
+  private drawLeg(g: Phaser.GameObjects.Graphics, x: number, y: number, hipX: number, hipY: number, facing: number, isMe: boolean, far: boolean, bare: boolean, red: number, pal: (typeof PAL)['morning'], bend = 0, pose?: { knee: { x: number; y: number }; hem: { x: number; y: number } }) {
     // 小学生の足。太めの手描きの黒い線、平塗り(新聞の4コマ漫画のような素朴さ)
     const INK = 0x2a2522;
     const shade = (c: number) => far ? Phaser.Display.Color.IntegerToColor(c).darken(10).color : c;
     const seed = (isMe ? 100 : 300) + (far ? 50 : 0);
     const lw = 3;
     const ankleX = x - facing * 10, ankleY = y - (bare ? 12 : 24);
-    const hemY = ankleY - 196; // 半ズボン / キュロットのすそ
-    const kneeY = ankleY - 104;
-    const kneeX = ankleX + (hipX - ankleX) * 0.42 + facing * (6 + bend * 22);
-    const hemX = ankleX + (hipX - ankleX) * 0.82 + facing * bend * 8;
+    let hemY = ankleY - 196; // 半ズボン / キュロットのすそ
+    let kneeY = ankleY - 104;
+    let kneeX = ankleX + (hipX - ankleX) * 0.42 + facing * (6 + bend * 22);
+    let hemX = ankleX + (hipX - ankleX) * 0.82 + facing * bend * 8;
+    if (pose) { kneeX = pose.knee.x; kneeY = pose.knee.y; hemX = pose.hem.x; hemY = pose.hem.y; }
     const skin = shade(0xf7d6b6);
+    const who = isMe ? 'me' : 'fr';
+    if (this.textures.exists(`${who}_shin#t`)) {
+      this.spriteLeg(who, far, bare, x, y, facing, hemX, hemY, kneeX, kneeY, ankleX, ankleY);
+      if (red > 0.02 && !bare) { const heelX = x - facing * 26; this.gFx.fillStyle(0xd8403a, Math.min(0.9, red)); this.gFx.fillCircle(heelX + facing * 6, y - 22, 3 + red * 4); }
+      return;
+    }
     // 脚(もも〜すね)
+    const nrm = (ax: number, ay: number, bx: number, by: number, w: number) => { const l = Math.hypot(bx - ax, by - ay) || 1; return { x: -(by - ay) / l * w, y: (bx - ax) / l * w }; };
+    const n1 = nrm(hemX, hemY, kneeX, kneeY, 18), n2 = nrm(kneeX, kneeY, ankleX, ankleY, 13);
     const Lg = this.wob([
-      { x: hemX - 19, y: hemY }, { x: hemX + 19, y: hemY },
-      { x: kneeX + 16, y: kneeY - 6 }, { x: kneeX + 15 + facing * 2, y: kneeY + 8 },
-      { x: ankleX + 10, y: ankleY + 4 }, { x: ankleX - 10, y: ankleY + 4 },
-      { x: kneeX - 14, y: kneeY + 8 }, { x: kneeX - 16, y: kneeY - 6 },
+      { x: hemX - n1.x, y: hemY - n1.y }, { x: kneeX - n1.x * 0.9, y: kneeY - n1.y * 0.9 }, { x: ankleX - n2.x * 0.75, y: ankleY - n2.y * 0.75 },
+      { x: ankleX + n2.x * 0.75, y: ankleY + n2.y * 0.75 }, { x: kneeX + n2.x * 1.2, y: kneeY + n2.y * 1.2 }, { x: kneeX + n1.x * 0.9, y: kneeY + n1.y * 0.9 }, { x: hemX + n1.x, y: hemY + n1.y },
     ], seed, 1.0);
     g.fillStyle(skin, 1); g.fillPoints(<any>Lg, true);
     g.lineStyle(lw, INK, 1); g.strokePoints(<any>Lg, true);
@@ -605,7 +649,11 @@ export class WalkScene extends Phaser.Scene {
     }
     // 半ズボン(自分=紺)/ キュロット(友だち=赤)。すそだけ見える
     const cloth = shade(isMe ? 0x34508c : 0xd8493e);
-    const Sh = this.wob([{ x: hipX - 32, y: hipY - 160 }, { x: hipX + 32, y: hipY - 160 }, { x: hemX + 27 + (isMe ? 0 : 7), y: hemY + 4 }, { x: hemX - 27 - (isMe ? 0 : 7), y: hemY + 4 }], seed + 20, 1.2);
+    const hw = 27 + (isMe ? 0 : 7);
+    const n3 = nrm(hipX, hipY, hemX, hemY, 1);
+    const Sh = pose
+      ? this.wob([{ x: hipX - n3.x * 30, y: hipY - n3.y * 30 }, { x: hipX + n3.x * 30, y: hipY + n3.y * 30 }, { x: hemX + n3.x * hw, y: hemY + n3.y * hw }, { x: hemX - n3.x * hw, y: hemY - n3.y * hw }], seed + 20, 1.2)
+      : this.wob([{ x: hipX - 32, y: hipY - 160 }, { x: hipX + 32, y: hipY - 160 }, { x: hemX + hw, y: hemY + 4 }, { x: hemX - hw, y: hemY + 4 }], seed + 20, 1.2);
     g.fillStyle(cloth, 1); g.fillPoints(<any>Sh, true);
     g.lineStyle(lw, INK, 1); g.strokePoints(<any>Sh, true);
     // 靴(または素足)
@@ -721,22 +769,24 @@ export class WalkScene extends Phaser.Scene {
     const frX = 470, myX = 250;
     // 脱いだ靴
     const shoe = (x: number, c: number) => { g.fillStyle(c, 1); g.fillRoundedRect(x, stepY - 20, 52, 20, 9); g.lineStyle(2.5, INK, 1); g.strokeRoundedRect(x, stepY - 20, 52, 20, 9); g.lineStyle(2, INK, 1); g.lineBetween(x, stepY - 5, x + 52, stepY - 5); };
-    if (frOff) { shoe(frX + 120, 0xfafafa); shoe(frX + 178, 0xfafafa); }
-    if (meOff) { shoe(myX - 190, 0xf5c63c); shoe(myX - 132, 0xf5c63c); }
-    const hip = (x: number) => x - 150;
-    this.drawLeg(g, frX - 28, stepY + shake, hip(frX), stepY - 150, 1, false, true, frOff, 0, pal, 1.4);
-    this.drawLeg(g, frX + 28, stepY - shake, hip(frX) + 10, stepY - 150, 1, false, false, frOff, 0, pal, 1.4);
-    this.drawLeg(g, myX - 28, stepY - shake, hip(myX), stepY - 150, 1, true, true, meOff, 0, pal, 1.4);
-    this.drawLeg(g, myX + 28, stepY + shake, hip(myX) + 10, stepY - 150, 1, true, false, meOff, this.w.heelRed, pal, 1.4);
+    if (frOff) { shoe(frX + 90, 0xfafafa); shoe(frX + 148, 0xfafafa); }
+    if (meOff) { shoe(myX + 80, 0xf5c63c); shoe(myX + 138, 0xf5c63c); }
+    // 座る: 足は一段下、ひざが上がり、ももは後ろ(一段上の段)へ
+    const sit = (fx: number, fy: number, sh: number, dz: number) => ({ knee: { x: fx - 6 + dz, y: fy - 120 + sh }, hem: { x: fx - 120 + dz, y: fy - 104 } });
+    const footY = GY;
+    this.drawLeg(g, frX - 22, footY + shake, frX - 190, footY - 100, 1, false, true, frOff, 0, pal, 0, sit(frX - 22, footY, shake, -8));
+    this.drawLeg(g, frX + 22, footY - shake, frX - 180, footY - 100, 1, false, false, frOff, frOff ? 0.6 : 0, pal, 0, sit(frX + 22, footY, -shake, 0));
+    this.drawLeg(g, myX - 22, footY - shake, myX - 190, footY - 100, 1, true, true, meOff, 0, pal, 0, sit(myX - 22, footY, -shake, -8));
+    this.drawLeg(g, myX + 22, footY + shake, myX - 180, footY - 100, 1, true, false, meOff, this.w.heelRed, pal, 0, sit(myX + 22, footY, shake, 0));
     if (frOff) {
       // 友だちのかかとも赤い
       const p = Math.min(1, (tt - 2600) / 900);
-      g.fillStyle(0xd8403a, 0.8 * p); g.fillCircle(frX + 28 - 20, stepY - 9, 9 * p); g.fillCircle(frX - 28 - 20, stepY - 9, 6 * p);
+      this.gFx.fillStyle(0xd8403a, 0.8 * p); this.gFx.fillCircle(frX + 22 - 20, GY - 8, 9 * p); this.gFx.fillCircle(frX - 22 - 20, GY - 8, 6 * p);
     }
     if (!meOff && tt > 6600) {
       // 自分の右の靴が、脱いでほしそうに光る
       const p = (Math.sin(this.now / 300) + 1) / 2;
-      g.lineStyle(3, pal.light, 0.4 + p * 0.5); g.strokeCircle(myX + 28, stepY - 14, 30 + p * 5);
+      this.gFx.lineStyle(4, 0xffd27a, 0.4 + p * 0.5); this.gFx.strokeCircle(myX + 22, GY - 14, 32 + p * 5);
     }
     void lift;
   }
